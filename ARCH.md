@@ -17,6 +17,10 @@ small interface at its seam; tests cross the same seam as callers.
   conflicting rules) + `checkNeutrality` pre-check + `buildDraftBundle`
   (EN+HI template-v1, headline cap, unconfirmed clauses); LLM extractor, Jev
   port adapter, and fluency renderer plug in later behind the same seams.
+- ✅ `src/server` — tRPC seam: `createAppRouter(store)` (public `health`,
+  protected `documents.create/list` with zod validation) over the
+  `DocumentsStore` port (memory + Drizzle adapters); `context.ts` maps Managed
+  sessions at the route layer only; per-request client factories.
 - `src/app/editor` — shadcn approval UI (components via `npx shadcn add`). Next feat.
 
 ## Services
