@@ -10,7 +10,9 @@ small interface at its seam; tests cross the same seam as callers.
   Interface: `createUploadGrant` + `headObject`; keys built inside
   (`tenants/{t}/docs/{d}/source.{ext}`); failures as `R2Failure` union, never throws.
   Adapters (internal seam): `adapters/s3.ts` (production), `adapters/memory.ts` (tests).
-- `src/lib/db` — Postgres via Drizzle + `pg` (pooled app URL, direct URL migrations). Next feat.
+- ✅ `src/lib/db` — Postgres seam: `pickConnectionString` (pooled app / direct
+  migrate) + `createDb` (injected string, pg max 5) + Drizzle schema
+  (`documents`, `sources`); migration `drizzle/0000_true_blizzard.sql`.
 - `src/lib/press-facts` — extraction schema + validators. Next feat.
 - `src/app/editor` — shadcn approval UI (components via `npx shadcn add`). Next feat.
 
