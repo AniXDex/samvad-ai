@@ -15,9 +15,15 @@ import { createDrizzleDocumentsStore } from "@/server/documents/drizzle-document
 import type { DocumentsStore } from "@/server/documents/store";
 import { resolveSession } from "@/server/session";
 import type { Context } from "@/server/trpc";
+import {
+  createMemoryVectorIndex,
+  createQdrantVectorIndex,
+  type VectorIndex,
+} from "@/lib/vector/qdrant";
 
 let cachedStore: DocumentsStore | null = null;
 let cachedR2: R2Module | null = null;
+let cachedVector: VectorIndex | null = null;
 
 export function getStore(): DocumentsStore {
   if (cachedStore) return cachedStore;
@@ -54,6 +60,20 @@ export function getR2(): R2Module | null {
 export async function buildContext(): Promise<Context> {
   const { userId, isAuthenticated } = await auth();
   return { session: resolveSession(isAuthenticated && userId ? { user: { id: userId } } : null) };
+}
+
+export function getVectorIndex(): VectorIndex {
+  if (cachedVector) return cachedVector;
+  const qdrantUrl = process.env.QDRANT_URL;
+  if (qdrantUrl) {
+    cachedVector = createQdrantVectorIndex({
+      url: qdrantUrl,
+      apiKey: process.env.QDRANT_API_KEY,
+    });
+  } else {
+    cachedVector = createMemoryVectorIndex();
+  }
+  return cachedVector;
 }
 
 

@@ -15,6 +15,7 @@ import { z } from "zod";
 import { documentId, tenantId, type R2Module } from "@/lib/r2/r2";
 import { isOk } from "@/lib/result/result";
 import { type DocumentsStore, type MembershipRole } from "./documents/store";
+import { type VectorIndex } from "@/lib/vector/qdrant";
 
 export interface Session {
   readonly user: { readonly id: string };
@@ -44,7 +45,11 @@ const documentInput = z
     message: "document id must match [A-Za-z0-9_-]{1,64}",
   });
 
-export function createAppRouter(store: DocumentsStore, r2?: R2Module | null) {
+export function createAppRouter(
+  store: DocumentsStore,
+  r2?: R2Module | null,
+  vectorIndex?: VectorIndex | null,
+) {
   async function requireMembership(
     userId: string,
     targetTenant: string,
@@ -217,6 +222,38 @@ export function createAppRouter(store: DocumentsStore, r2?: R2Module | null) {
             r2Key: input.key,
             sha256: input.sha256,
           });
+        }),
+    }),
+
+    precedents: t.router({
+      search: protectedProcedure
+        .input(
+          z.object({
+            tenantId: tenantInput,
+            vector: z.array(z.number()).min(1),
+            limit: z.number().int().min(1).max(20).default(5),
+            minScore: z.number().min(0).max(1).default(0.5),
+          })
+        )
+        .query(async ({ input, ctx }) => {
+          await requireMembership(ctx.session.user.id, input.tenantId);
+          if (!vectorIndex) {
+            throw new TRPCError({ code: "NOT_IMPLEMENTED", message: "vector index not wired" });
+          }
+          const search = await vectorIndex.searchSimilar({
+            tenantId: input.tenantId,
+            vector: input.vector,
+            limit: input.limit,
+            minScore: input.minScore,
+          });
+          if (!isOk(search)) {
+            const errMessage =
+              search.error.kind === "invalid-input"
+                ? search.error.issues.join(", ")
+                : search.error.message;
+            throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: errMessage });
+          }
+          return search.value;
         }),
     }),
   });

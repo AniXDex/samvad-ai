@@ -186,4 +186,45 @@ describe("tRPC router", () => {
       })
     ).rejects.toMatchObject({ code: "NOT_IMPLEMENTED" });
   });
+
+  test("precedents.search returns ranked similar precedents", async () => {
+    const { createMemoryVectorIndex } = await import("@/lib/vector/qdrant");
+    const store = createMemoryDocumentsStore();
+    await store.addMembership({ userId: "user-1", tenantId: "t-1", role: "contributor" });
+
+    const vectorIndex = createMemoryVectorIndex();
+    await vectorIndex.upsertPoint({
+      id: "doc-p1",
+      tenantId: "t-1",
+      vector: [1.0, 0.0, 0.0],
+      text: "Precedent regarding online fraud arrest",
+      metadata: { classification: "cyber" },
+    });
+
+    const caller = createAppRouter(store, null, vectorIndex).createCaller(signedIn);
+    const results = await caller.precedents.search({
+      tenantId: "t-1",
+      vector: [1.0, 0.0, 0.0],
+      limit: 5,
+      minScore: 0.5,
+    });
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.id).toBe("doc-p1");
+    expect(results[0]?.score).toBeCloseTo(1.0);
+    expect(results[0]?.text).toContain("online fraud arrest");
+  });
+
+  test("precedents.search throws NOT_IMPLEMENTED when vector index is not provided", async () => {
+    const store = createMemoryDocumentsStore();
+    await store.addMembership({ userId: "user-1", tenantId: "t-1", role: "contributor" });
+    const caller = createAppRouter(store, null, null).createCaller(signedIn);
+
+    await expect(
+      caller.precedents.search({
+        tenantId: "t-1",
+        vector: [1.0, 0.0],
+      })
+    ).rejects.toMatchObject({ code: "NOT_IMPLEMENTED" });
+  });
 });
