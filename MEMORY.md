@@ -54,7 +54,9 @@ wrangler R2-admin needs an account token (the R2-scoped cfat token is S3-only).
   resumable login started — user must open the authorization URL, then
   `trigger.config.ts` (needs dashboard project ref) + `TRIGGER_SECRET_KEY`.
 - Still key-blocked: Sarvam unverified until first STT run; Trigger project ref +
-  secret (after user login); mem0 key rejected (needs dashboard re-check).
+  secret (after user login); mem0 second key also 401 — pasted value hid a
+  U+200B zero-width space (found, stripped, re-verified, still `token_not_valid`;
+  dashboard re-check needed, value kept as-supplied).
 - Feat 6: Laya migration (no Jev key) — `LAYA_API_KEY` stored + verified
   (`/v1/usage` 200, 6000 free credits); `src/lib/verify` port (HTTP + fake
   adapters, ≤32/state-budget guards, thresholds with callers); one live Noul
