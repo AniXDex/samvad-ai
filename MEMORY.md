@@ -28,38 +28,37 @@ Blockers: Neon AI Gateway Free plan does not serve models (paid needed for
 live LLM); Trigger.dev login is a human step (resumable flow per skill);
 wrangler R2-admin needs an account token (the R2-scoped cfat token is S3-only).
 
-## Compacted state (2026-10-14, feats 1–3 + 2 refactors shipped)
-- Repo: D:\projects\samvaad-ai, remotes origin=samvad-ai (active), samvaad-ai=stale/invalid.
+## Compacted state (2026-10-14 EOD — everything below is current truth)
+- Repo: D:\projects\samvaad-ai; origin=samvad-ai (active, main tracks it);
+  samvaad-ai remote stale/invalid (kept, never pushed).
   Commits: 751aaa6 scaffold → b4e7c8b feat1 → f697d91 merge → 67d5b00 feat2 →
   28edf9d feat3+dbrule → 222b5e0 locale-seam → 699d279 policy-options →
-  e7d874e feat4-api → 0ec4308 feat5-keys → ee5ec2e mem0-record.
-- Feat 1: result/env/r2 modules, R2 live vs bucket `examgpt`, vitest, strict+noUncheckedIndexedAccess.
-- Feat 2: db module (Drizzle+pg), migration generated, dev branch `dev`
-  (br-dawn-math-az71zh8l) pushed via db:push + live round-trip; production never written.
-- Feat 3: press-facts (facts/neutrality/bundle), template-v1 EN built-in + secondary
-  locale injected (zero non-English literals in src).
-- Refactors: locale seam; policy options (sizes/TTL/allowlist/lexicon/pool/cap).
-- Feat 4: tRPC + Managed Auth (live HTTP: health/auth-ok 200, signed-out 401).
-- Gates green throughout: 43 passed + 3 live-skipped, lint/build/typecheck 0, any-grep 0.
-- Secrets: .env.local + .neon gitignored (verified); R2 creds in User env + .env.local.
-- Neon: linked samvaad-ai/production, Auth enabled, region aws-ap-southeast-1.
-- Feat 5: AI keys stored (`MISTRAL_API_KEY`, `LITELLM_*` gateway per
-  docs.corsair.dev/llm-gateway, `SARVAM_API_KEY`, `MEM0_API_KEY`); gateway verified
-  (models list + 15-token nano smoke 200; `/key/info` 500s server-side —
-  their LiteLLM schema drift, reported honestly); Mistral key verified via
-  models list; Sarvam unverified until first STT run. mem0 key REJECTED
-  (401 `token_not_valid` on read-only list — needs re-check in mem0
-  dashboard, value kept as-supplied, never assumed valid). Inngest dev loop live
-  (`/api/inngest` 200 dev mode, 1 function). Trigger.dev CLI 4.7.3 cached,
-  resumable login started — user must open the authorization URL, then
-  `trigger.config.ts` (needs dashboard project ref) + `TRIGGER_SECRET_KEY`.
-- Still key-blocked: Sarvam unverified until first STT run; Trigger project ref +
-  secret (after user login); mem0 second key also 401 — pasted value hid a
-  U+200B zero-width space (found, stripped, re-verified, still `token_not_valid`;
-  dashboard re-check needed, value kept as-supplied).
-- Feat 6: Laya migration (no Jev key) — `LAYA_API_KEY` stored + verified
-  (`/v1/usage` 200, 6000 free credits); `src/lib/verify` port (HTTP + fake
-  adapters, ≤32/state-budget guards, thresholds with callers); one live Noul
-  passed (micro-spend, shape-only assertions). SPEC 002's verifier refs now
-  mean this module.
-- Next: editor UI, then Trigger config after login.
+  e7d874e feat4-api → 0ec4308 feat5-keys → ee5ec2e mem0-record →
+  48ff592 feat6-laya → 58e31b7 mem0-401 → 531e6b6 docs → 272724f arch-example.
+- Modules (all deep, tested at interface): result, env, r2 (+s3/memory adapters),
+  db (Drizzle schema documents/sources), press-facts (facts/neutrality/bundle),
+  verify (Laya port + fake), auth (config pure / server thin leaf), trpc
+  (router+store port+drizzle adapter), inngest (client+1 function), trpc client.
+- Specs 001–007 in specs/; README (plain-English) + ARCH (full + Hinglish §8).
+- Gates: 43 passed + 3 live-skipped, typecheck/lint/build 0, any-grep 0,
+  Devanagari-grep 0. Live proofs: R2 vs `examgpt`, DB round-trip on scratch
+  branch (deleted), tRPC/auth HTTP (health+auth-ok 200, signed-out 401),
+  Inngest dev 200 (1 fn), gateway nano smoke 200, Mistral models 200,
+  Laya Noul passed, Laya usage 200 (6000 free).
+- Secrets: .env.local + .neon gitignored (check-ignore verified); R2 + cookie
+  secret in User env too; AI/Laya/mem0 keys in .env.local only.
+- Neon: samvaad-ai/production (br-super-dream), Auth on, aws-ap-southeast-1;
+  persistent `dev` branch (br-dawn-math) for db:push. Production never written
+  except intended links. Neon AI Gateway: Free = no serving (use direct keys).
+- Key ledger — GOOD: Neon OAuth, R2 set, cookie secret, Mistral, gateway,
+  Laya. BAD: mem0 2×401 (2nd hid U+200B, stripped, still invalid — dashboard
+  re-check needed). UNPROVEN: Sarvam (first STT run). HUMAN-GATED: Trigger.dev
+  login URL opened? unknown — project ref + TRIGGER_SECRET_KEY still needed.
+- Tooling notes: shell strips `$vars` (write probe .js files instead, delete
+  after); no head/tail on Windows; quote `@scope` npm args; wrangler needs
+  account token (cfat is S3-only); inngest 4.23 = 2-arg createFunction (skill
+  shows stale 3-arg); gateway /key/info 500s (their schema drift).
+- Vulns: 21 (9→12 high) from inngest+trigger transitive deps; no --force.
+- Next in order: (1) Trigger login resume + config + first task, (2) memberships
+  + RLS (tenant-from-input gap, SPEC 005), (3) editor UI via shadcn CLI,
+  (4) LLM claim extractor, (5) Sarvam first run + mem0 valid key + Qdrant.
