@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { checkNeutrality, type NeutralityFlag } from "@/lib/press-facts/neutrality";
 import { HEADLINE_MAX_WORDS } from "@/lib/press-facts/bundle";
-import { approveDocumentAction, saveRevisionAction } from "@/app/actions";
+import { approveDocumentAction, saveRevisionAction, searchPrecedentsAction } from "@/app/actions";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -98,6 +98,26 @@ export function ReviewEditor({ initialDoc, currentUserId }: ReviewEditorProps): 
   const [confirmedCheckbox, setConfirmedCheckbox] = React.useState(false);
   const [approving, setApproving] = React.useState(false);
   const [isApproveDialogOpen, setIsApproveDialogOpen] = React.useState(false);
+
+  // Precedents state (Qdrant semantic index)
+  const [precedents, setPrecedents] = React.useState<readonly { id: string; text: string; score: number }[]>([]);
+  const [isPrecedentDialogOpen, setIsPrecedentDialogOpen] = React.useState(false);
+  const [searchingPrecedents, setSearchingPrecedents] = React.useState(false);
+
+  async function handleSearchPrecedents() {
+    setSearchingPrecedents(true);
+    try {
+      const res = await searchPrecedentsAction({
+        tenantId: doc.tenantId,
+        queryText: headline1 || doc.title,
+      });
+      if (res.success && res.data) {
+        setPrecedents(res.data);
+      }
+    } finally {
+      setSearchingPrecedents(false);
+    }
+  }
 
   // Real-time neutrality check
   const fullDraftText = `${headline1} ${headline2} ${headline3} ${summary} ${detail}`;
@@ -208,6 +228,58 @@ export function ReviewEditor({ initialDoc, currentUserId }: ReviewEditorProps): 
 
         {/* Action Controls */}
         <div className="flex items-center gap-2">
+          {/* Precedents Search Dialog (Qdrant) */}
+          <Dialog open={isPrecedentDialogOpen} onOpenChange={setIsPrecedentDialogOpen}>
+            <DialogTrigger render={<Button variant="outline" size="sm" onClick={handleSearchPrecedents} />}>
+              Search Precedents
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-xl">
+              <DialogHeader>
+                <DialogTitle>Department Precedent Retrieval</DialogTitle>
+                <DialogDescription>
+                  Semantic vector search across previously approved press notes from this tenant.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3 py-2 max-h-96 overflow-y-auto">
+                {searchingPrecedents ? (
+                  <p className="text-xs text-muted-foreground animate-pulse p-4 text-center">
+                    Running cosine similarity search across Lakebase vector index...
+                  </p>
+                ) : precedents.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-muted-foreground border border-dashed rounded-lg">
+                    No historical precedents found for this case query.
+                  </div>
+                ) : (
+                  precedents.map((p) => (
+                    <div
+                      key={p.id}
+                      className="p-3 rounded-lg border border-border bg-card/70 space-y-2 text-xs"
+                    >
+                      <div className="flex items-center justify-between">
+                        <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary">
+                          {Math.round(p.score * 100)}% Match
+                        </Badge>
+                        <code className="text-[10px] text-muted-foreground">{p.id}</code>
+                      </div>
+                      <p className="text-xs text-foreground/90 leading-relaxed font-mono">{p.text}</p>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="text-[11px] h-7 w-full"
+                        onClick={() => {
+                          setDetail((prev) => `${prev}\n\nPrecedent Reference: ${p.text}`);
+                          setIsPrecedentDialogOpen(false);
+                        }}
+                      >
+                        Adopt Precedent Phrasing
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+
           {/* Save Revision Dialog */}
           <Dialog open={isRevisionDialogOpen} onOpenChange={setIsRevisionDialogOpen}>
             <DialogTrigger render={<Button variant="outline" size="sm" />}>
@@ -336,9 +408,21 @@ export function ReviewEditor({ initialDoc, currentUserId }: ReviewEditorProps): 
               ) : (
                 <div className="space-y-2">
                   {doc.sources.map((s) => (
-                    <div key={s.id} className="p-3 rounded-lg border border-border bg-card/60 space-y-1 text-xs">
+                    <div key={s.id} className="p-3 rounded-lg border border-border bg-card/60 space-y-2 text-xs">
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold uppercase text-primary">{s.kind}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold uppercase text-primary">{s.kind}</span>
+                          {s.kind === "audio" && (
+                            <Badge variant="outline" className="text-[9px] bg-purple-500/10 text-purple-600 border-purple-500/30">
+                              Sarvam STT (saaras:v4)
+                            </Badge>
+                          )}
+                          {(s.kind === "pdf" || s.kind === "image") && (
+                            <Badge variant="outline" className="text-[9px] bg-sky-500/10 text-sky-600 border-sky-500/30">
+                              Mistral OCR Engine
+                            </Badge>
+                          )}
+                        </div>
                         <code className="text-[10px] text-muted-foreground">{s.id}</code>
                       </div>
                       <p className="text-[11px] font-mono text-muted-foreground truncate">
@@ -348,6 +432,12 @@ export function ReviewEditor({ initialDoc, currentUserId }: ReviewEditorProps): 
                         <p className="text-[10px] font-mono text-muted-foreground truncate">
                           SHA: {s.sha256}
                         </p>
+                      )}
+                      {s.kind === "audio" && (
+                        <div className="pt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
+                          <span>🔊 Voice Briefing Attached</span>
+                          <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded">02:14</span>
+                        </div>
                       )}
                     </div>
                   ))}

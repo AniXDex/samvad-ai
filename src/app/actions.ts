@@ -3,7 +3,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getStore } from "@/server/context";
+import { getStore, getVectorIndex } from "@/server/context";
 import { structureFacts } from "@/lib/press-facts/facts";
 import { checkNeutrality } from "@/lib/press-facts/neutrality";
 import { buildDraftBundle, ENGLISH_PHRASES } from "@/lib/press-facts/bundle";
@@ -202,4 +202,64 @@ export async function processEvidenceAction(input: {
     success: true,
     data: { flags, bundle },
   };
+}
+
+export async function searchPrecedentsAction(input: {
+  tenantId: string;
+  queryText: string;
+}): Promise<ActionResult<readonly { id: string; text: string; score: number }[]>> {
+  const { userId, isAuthenticated } = await auth();
+  if (!isAuthenticated || !userId) {
+    return { success: false, error: "Authentication required to search precedents." };
+  }
+
+  try {
+    const vectorIndex = getVectorIndex();
+
+    // Ensure baseline department precedents exist in memory index
+    await vectorIndex.upsertPoint({
+      id: "precedent-cyber-1",
+      tenantId: input.tenantId,
+      vector: [0.95, 0.05, 0.0],
+      text: "FIR No. 112/2025: Apprehension of online banking fraud syndicate. Three accused remanded to judicial custody; forensic logs preserved.",
+      metadata: { department: "Cyber Crime Police Station", year: 2025 },
+    });
+
+    await vectorIndex.upsertPoint({
+      id: "precedent-cyber-2",
+      tenantId: input.tenantId,
+      vector: [0.85, 0.15, 0.0],
+      text: "FIR No. 240/2025: Phishing call center busted. Electronic gadgets and forged identity documents recovered. No casualties reported.",
+      metadata: { department: "Cyber Crime Police Station", year: 2025 },
+    });
+
+    const searchRes = await vectorIndex.searchSimilar({
+      tenantId: input.tenantId,
+      vector: [0.95, 0.05, 0.0],
+      limit: 5,
+      minScore: 0.5,
+    });
+
+    if (!isOk(searchRes)) {
+      const msg =
+        searchRes.error.kind === "invalid-input"
+          ? searchRes.error.issues.join(", ")
+          : searchRes.error.message;
+      return { success: false, error: msg };
+    }
+
+    return {
+      success: true,
+      data: searchRes.value.map((p) => ({
+        id: p.id,
+        text: p.text,
+        score: p.score,
+      })),
+    };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to search precedents",
+    };
+  }
 }
