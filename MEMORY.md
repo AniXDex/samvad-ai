@@ -42,10 +42,12 @@ wrangler R2-admin needs an account token (the R2-scoped cfat token is S3-only).
 - Secrets: .env.local + .neon gitignored (verified); R2 creds in User env + .env.local.
 - Neon: linked samvaad-ai/production, Auth enabled, region aws-ap-southeast-1.
 - Feat 5: AI keys stored (`MISTRAL_API_KEY`, `LITELLM_*` gateway per
-  docs.corsair.dev/llm-gateway, `SARVAM_API_KEY`); gateway verified
+  docs.corsair.dev/llm-gateway, `SARVAM_API_KEY`, `MEM0_API_KEY`); gateway verified
   (models list + 15-token nano smoke 200; `/key/info` 500s server-side —
   their LiteLLM schema drift, reported honestly); Mistral key verified via
-  models list; Sarvam unverified until first STT run. Inngest dev loop live
+  models list; Sarvam unverified until first STT run. mem0 key REJECTED
+  (401 `token_not_valid` on read-only list — needs re-check in mem0
+  dashboard, value kept as-supplied, never assumed valid). Inngest dev loop live
   (`/api/inngest` 200 dev mode, 1 function). Trigger.dev CLI 4.7.3 cached,
   resumable login started — user must open the authorization URL, then
   `trigger.config.ts` (needs dashboard project ref) + `TRIGGER_SECRET_KEY`.
