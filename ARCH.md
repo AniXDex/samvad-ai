@@ -164,3 +164,100 @@ Inngest dev loop, gateway inference, Mistral + Laya keys. Open: Sarvam first
 real transcription, mem0 key re-check, Trigger.dev human login click,
 memberships + RLS, approval editor UI, LLM claim extractor, Qdrant index.
 Each maps to a spec file in `specs/` — build order follows the numbers.
+
+## 8. Full example: ek press note, shuru se aakhir tak
+
+SHO Sharma ji ko cyber-fraud case ka press note nikalna hai. Unke paas hai:
+ek FIR ki photo (phone se li hui) aur ek 2-minute ka voice note jisme woh
+khud bol rahe hain — aadha Hindi, aadha English. Dekho system mein kya hota
+hai, step by step, kaunsi service kaunsa kaam karti hai.
+
+**Step 0 — Login (Neon Managed Better Auth).**
+Sharma ji apna email-password daalte hain. `src/lib/auth` unka session
+banata hai aur har aage ke request ke saath unki pehchaan jaati hai. Bina
+login ke koi file upload nahi kar sakta — route seedha 401 dega.
+
+**Step 1 — Upload (Next.js + tRPC + Cloudflare R2).**
+Sharma ji photo aur voice note select karte hain. Browser server ko sirf
+details bhejta hai — "2 files, ye naam, ye size". Server (`src/lib/r2`)
+check karta hai: type allowed list mein hai? size 500 MB se kam hai? Phir
+5-minute ka upload ticket banata hai. Browser dono files seedha R2 storage
+mein daal deta hai — web server ko file chhooti tak nahi. Key banti hai
+server-side: `tenants/sho-jaipur/docs/doc-42/source.jpg`. Koi `../` wali
+chalaki chalegi nahi — id check pehle hi reject kar dega.
+
+**Step 2 — File check + event (Inngest).**
+File pahuchte hi Inngest ko `upload/complete` event milta hai. Pehla kaam:
+sachchai check — photo waqai photo hai ya kuch aur naam badal ke aaya hai?
+Voice note waqai audio hai, kitne minute ka hai? Sab sahi → Trigger.dev ko
+order: "doc-42 ka AI job shuru karo". Gadbad file → quarantine, draft kabhi
+banega hi nahi.
+
+**Step 3 — Padhna (Mistral OCR + Sarvam STT, Trigger.dev job ke andar).**
+- Photo → **Mistral OCR**: "Crime No. 12 ... online fraud ... two arrests
+  made" — har lafz ke saath box (kahan likha hai) aur confidence score.
+  Dhundli line ka confidence kam → woh tukda auto-citation se bahar, officer
+  ke liye flag lag gaya.
+- Voice note → **Sarvam** (Hinglish pakadta hai): "haan, FIR number baarah
+  hai... teen log ghayal hue... matlab do ghayal..." — shabd-ba-shabd
+  transcript, time ke nishaan ke saath. Bilkul waisa, jaisa bola gaya —
+  koi safai nahi.
+
+**Step 4 — Facts jamana (`src/lib/press-facts`).**
+Ab machine claims ko kanoon lagata hai:
+- "Crime No. 12" (FIR page 1 se) → **confirmed**.
+- "Two arrests" (FIR se) → **confirmed**.
+- "Date" kahin nahi likhi → **not_stated**. Upload ki tareekh chipkayi nahi
+  jaati — draft likhega "date not stated".
+- "Teen ghayal" vs "do ghayal" (ek hi note mein do alag baatein) →
+  **conflicting** — dono options rakhe jaate hain, faisla officer karega.
+- "Scamster pakda gaya" agar form mein likha ho bina source ke →
+  **unverified**, aur neutrality scan "scamster" shabd pe flag lagata hai:
+  likho "accused", kyunki court ne abhi doshi nahi kaha.
+
+**Step 5 — Jaaa... matlab double-check (Laya Studio).**
+Har fact wapas source se puchha jaata hai, haan/naa sawal mein: "Kya text
+mein amount likhi hai?" Laya jawab deta hai — P(true) + confidence. Zyada
+shak → seedha human review queue. Machine faisla nahi karti, sirf doubt
+naapti hai.
+
+**Step 6 — Draft likhna (bundle renderer).**
+Pakke facts se fixed thali sajti hai: 3 headlines (15 shabd se kam), ek
+summary, ek poori detail — English + Hindi dono mein. Har jumla source se
+bandha. Ghayal wali line banti hai: "The number of injured persons could not
+be confirmed from the available sources." Koi andaza nahi, koi "lagbhag" nahi.
+
+**Step 7 — Sharma ji ki mez (approval editor + Postgres).**
+Screen pe teen cheezein saath-saath: original FIR photo, audio player +
+transcript, aur draft — har jumle pe click karo to source khulta hai. Peeli
+flags dikh rahe hain: conflicting injury count, unverified word. Sharma ji
+"two injured" kaat ke likhte hain "number awaited", Hindi headline theek
+karte hain. Har edit naya version banata hai (`revisions` table). Phir
+checkbox tick karte hain — "maine crime/casualty claims source se verify
+kiye" — aur Approve dabate hain. Bina is token ke publish ka rasta code mein
+hai hi nahi.
+
+**Step 8 — Publish + hisaab-kitaab (Postgres audit).**
+Final note, saare versions, dono sources, model ke naam, confidence scores,
+aur Sharma ji ki mohar (kaun, kab) — sab ek audit bundle mein seal. Do mahine
+baad koi puche "ye line kahan se aayi?" — jawab ek click pe: kaunsi file,
+kaunsa page, kisne approve kiya.
+
+**Is kahani mein kaun kya karta hai — ek nazar mein:**
+
+| Step | Service | Kaam |
+|---|---|---|
+| Login | Neon Managed Better Auth | Pehchaan + session |
+| Upload ticket | tRPC + `src/lib/r2` | Type/size check, 5-min ticket, server-side key |
+| Storage | Cloudflare R2 | Files rakhna (quarantine → verified) |
+| Event | Inngest | "File aayi" sunke validation + job order |
+| Photo padhna | Mistral OCR | Text + box + confidence |
+| Audio sunna | Sarvam (`saaras:v4`) | Hinglish transcript, time-marked |
+| Facts + draft | `src/lib/press-facts` | confirmed/unverified/conflicting + EN+HI bundle |
+| Double-check | Laya Studio | Har fact pe haan/naa + doubt score |
+| Language guard | Neutrality scan | Guilt/sensational shabd rokna |
+| Yaadgard | Neon Postgres | Versions, sources, approvals, audit |
+| Khoj (baad mein) | Qdrant | Purane notes dhoondhna |
+| Style yaad (baad mein) | mem0 | Sirf approved notes se seekhna |
+| Lamba AI kaam | Trigger.dev | Crash-proof jobs, retry, human-wait |
+| Aakhri faisla | Officer (human) | Edit + approve — iske bina kuch publish nahi |
