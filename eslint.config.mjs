@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vendor skill scripts are owned by their skill repos, not this app:
+    ".agents/**",
+    ".claude/**",
+    ".kiro/**",
   ]),
 ]);
 
