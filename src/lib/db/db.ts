@@ -37,8 +37,16 @@ export interface Database {
   readonly close: () => Promise<void>;
 }
 
-export function createDb(connectionString: string): Database {
-  const pool = new Pool({ connectionString, max: 5 });
+/** Isolate pool sizing: small, because each serverless isolate keeps its own. */
+export const DEFAULT_POOL_MAX = 5;
+
+export interface CreateDbOptions {
+  /** Operator-tunable pool ceiling; defaults to {@link DEFAULT_POOL_MAX}. */
+  readonly maxConnections?: number;
+}
+
+export function createDb(connectionString: string, options: CreateDbOptions = {}): Database {
+  const pool = new Pool({ connectionString, max: options.maxConnections ?? DEFAULT_POOL_MAX });
   const db = drizzle(pool, { schema });
   return {
     db,

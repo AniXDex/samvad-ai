@@ -61,6 +61,35 @@ describe("r2 store", () => {
     }
   });
 
+  test("operator policy overrides apply without code changes", async () => {
+    const { connection, tenant, document } = setup();
+    const strict = createR2Module({
+      connection,
+      bucket: "test-bucket",
+      maxUploadBytes: 100,
+      allowedUploads: { txt: "text/plain" },
+    });
+    const tooBig = await strict.createUploadGrant({
+      tenant,
+      document,
+      extension: "txt",
+      contentType: "text/plain",
+      contentLengthBytes: 101,
+    });
+    expect(isErr(tooBig)).toBe(true);
+
+    const pdfNowRejected = await strict.createUploadGrant({
+      tenant,
+      document,
+      extension: "pdf",
+      contentType: "application/pdf",
+      contentLengthBytes: 10,
+    });
+    expect(isErr(pdfNowRejected)).toBe(true);
+
+    expect(connection.grants()).toHaveLength(0);
+  });
+
   test("path traversal in ids never reaches the key builder", () => {
     expect(isErr(tenantId("../x"))).toBe(true);
     expect(isErr(documentId("a/b"))).toBe(true);

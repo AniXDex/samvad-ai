@@ -28,8 +28,14 @@ export function documentId(value: string): Result<DocumentId, string> {
   return ok(value as DocumentId);
 }
 
-/** Extension allowlist: the only file kinds ingest accepts, with exact MIME. */
-export const ALLOWED_UPLOADS = {
+export type AllowedUploads = Record<string, string>;
+
+/**
+ * Default ingest policy: the only file kinds accepted, with exact MIME.
+ * Deployments may inject their own map through the module options instead of
+ * forking this file — the default stays as the reviewed baseline.
+ */
+export const DEFAULT_ALLOWED_UPLOADS: AllowedUploads = {
   pdf: "application/pdf",
   png: "image/png",
   jpg: "image/jpeg",
@@ -39,9 +45,12 @@ export const ALLOWED_UPLOADS = {
   wav: "audio/wav",
   m4a: "audio/mp4",
   ogg: "audio/ogg",
-} as const;
+};
 
-export type AllowedExtension = keyof typeof ALLOWED_UPLOADS;
+/** Backwards-compatible alias. */
+export const ALLOWED_UPLOADS = DEFAULT_ALLOWED_UPLOADS;
+
+export type AllowedExtension = string;
 
 export const MAX_UPLOAD_BYTES = 500 * 1024 * 1024;
 export const DEFAULT_UPLOAD_TTL_SECONDS = 300;
@@ -94,6 +103,10 @@ export interface R2ModuleOptions {
   readonly connection: R2Connection;
   readonly bucket: string;
   readonly uploadTtlSeconds?: number;
+  /** Operator-tunable policy; defaults to {@link DEFAULT_ALLOWED_UPLOADS}. */
+  readonly allowedUploads?: AllowedUploads;
+  /** Operator-tunable limit; defaults to {@link MAX_UPLOAD_BYTES}. */
+  readonly maxUploadBytes?: number;
   readonly now?: () => Date;
 }
 
@@ -102,11 +115,9 @@ export interface R2Module {
   headObject(input: HeadInput): Promise<Result<ObjectHead, R2Failure>>;
 }
 
-function normalizeExtension(raw: string): AllowedExtension | null {
+function normalizeExtension(allowed: AllowedUploads, raw: string): string | null {
   const lower = raw.toLowerCase();
-  if (Object.prototype.hasOwnProperty.call(ALLOWED_UPLOADS, lower)) {
-    return lower as AllowedExtension;
-  }
+  if (Object.prototype.hasOwnProperty.call(allowed, lower)) return lower;
   return null;
 }
 
@@ -120,22 +131,24 @@ function connectionFailureToR2Failure(failure: ConnectionFailure): R2Failure {
 
 export function createR2Module(options: R2ModuleOptions): R2Module {
   const ttl = options.uploadTtlSeconds ?? DEFAULT_UPLOAD_TTL_SECONDS;
+  const allowed = options.allowedUploads ?? DEFAULT_ALLOWED_UPLOADS;
+  const maxBytes = options.maxUploadBytes ?? MAX_UPLOAD_BYTES;
 
   return {
     async createUploadGrant(input: UploadGrantInput): Promise<Result<UploadGrant, R2Failure>> {
-      const extension = normalizeExtension(input.extension);
+      const extension = normalizeExtension(allowed, input.extension);
       const issues: string[] = [];
       if (extension === null) {
         issues.push(`extension ${JSON.stringify(input.extension)} is not in the allowlist`);
-      } else if (input.contentType !== ALLOWED_UPLOADS[extension]) {
+      } else if (input.contentType !== allowed[extension]) {
         issues.push(
-          `content type ${JSON.stringify(input.contentType)} does not match ${extension} (${ALLOWED_UPLOADS[extension]})`,
+          `content type ${JSON.stringify(input.contentType)} does not match ${extension} (${allowed[extension]})`,
         );
       }
       if (!Number.isInteger(input.contentLengthBytes) || input.contentLengthBytes < 1) {
         issues.push("content length must be a positive integer number of bytes");
-      } else if (input.contentLengthBytes > MAX_UPLOAD_BYTES) {
-        issues.push(`content length exceeds the ${MAX_UPLOAD_BYTES} byte limit`);
+      } else if (input.contentLengthBytes > maxBytes) {
+        issues.push(`content length exceeds the ${maxBytes} byte limit`);
       }
       if (extension === null || issues.length > 0) {
         return err({ kind: "invalid-input", issues });

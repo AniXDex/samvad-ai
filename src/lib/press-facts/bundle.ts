@@ -93,8 +93,11 @@ function textOf(field: FactField): string | null {
   return field.status === "confirmed" ? field.value : null;
 }
 
-/** Drop trailing comma-clauses until the headline fits the 15-word cap. */
-export function capHeadline(headline: string, maxWords = 15): string {
+/** SKIT005 contract: headlines carry at most this many words. */
+export const HEADLINE_MAX_WORDS = 15;
+
+/** Drop trailing comma-clauses until the headline fits the word cap. */
+export function capHeadline(headline: string, maxWords = HEADLINE_MAX_WORDS): string {
   const words = headline.split(/\s+/).filter((w) => w.length > 0);
   if (words.length <= maxWords) return headline;
   const clauses = headline.split(",");

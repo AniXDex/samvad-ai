@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { isOk } from "@/lib/result/result";
-import { buildDraftBundle, capHeadline, type BundlePhrases } from "./bundle";
+import { buildDraftBundle, capHeadline, HEADLINE_MAX_WORDS, type BundlePhrases } from "./bundle";
 import { structureFacts, type CitedSpan } from "./facts";
 import { checkNeutrality } from "./neutrality";
 
@@ -43,10 +43,10 @@ function wordCount(s: string): number {
 }
 
 describe("bundle module", () => {
-  test("headlines fit the 15-word cap by clause-dropping", () => {
+  test("headlines fit the word cap by clause-dropping", () => {
     expect(
       wordCount(capHeadline("one two three, four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen")),
-    ).toBeLessThanOrEqual(15);
+    ).toBeLessThanOrEqual(HEADLINE_MAX_WORDS);
     expect(capHeadline("short headline")).toBe("short headline");
   });
 
@@ -68,8 +68,8 @@ describe("bundle module", () => {
 
     expect(bundle.renderedBy).toBe("template-v1");
     expect(bundle.headlinesEn).toHaveLength(3);
-    for (const h of bundle.headlinesEn) expect(wordCount(h)).toBeLessThanOrEqual(15);
-    for (const h of bundle.headlinesHi) expect(wordCount(h)).toBeLessThanOrEqual(15);
+    for (const h of bundle.headlinesEn) expect(wordCount(h)).toBeLessThanOrEqual(HEADLINE_MAX_WORDS);
+    for (const h of bundle.headlinesHi) expect(wordCount(h)).toBeLessThanOrEqual(HEADLINE_MAX_WORDS);
     expect(bundle.citedSourceIds).toEqual(expect.arrayContaining(["fir-12", "brief-3"]));
     expect(bundle.detailEn).toContain("alleged");
     // Secondary locale substitutes through the same seam, ASCII-proven.

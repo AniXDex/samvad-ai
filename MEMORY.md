@@ -11,6 +11,8 @@ pre-trained numbers. Web research via Firecrawl first, fallback disclosed.
 Code rules: strict TS + `noUncheckedIndexedAccess`; no `any` keyword, no
 `ts-ignore`/`ts-expect-error` anywhere (grep-gated); no non-English literals
 in `src` (locale packs inject at runtime through the `BundlePhrases` seam);
+no hardcoded operator policy — sizes, TTLs, allowlists, lexicons, pool
+ceilings, and word caps ship as named defaults behind module options;
 dependencies injected at seams; tests live at module interfaces; one adapter
 = hypothetical seam, two (real + fake) = real one.
 

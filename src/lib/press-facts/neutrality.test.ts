@@ -16,4 +16,12 @@ describe("neutrality module", () => {
     expect(checkNeutrality("A shocking scandal busted.").map((f) => f.rule)).toContain("sensational");
     expect(checkNeutrality("At least 5 crores siphoned.").map((f) => f.rule)).toContain("unverified-scale");
   });
+
+  test("deployments can extend the lexicon without code changes", () => {
+    const flags = checkNeutrality("This is utterly kerfuffled.", [
+      { rule: "sensational", patterns: [/\bkerfuffled\b/i] },
+    ]);
+    expect(flags).toHaveLength(1);
+    expect(checkNeutrality("This is utterly kerfuffled.")).toEqual([]);
+  });
 });
