@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { SignInButton } from "@clerk/nextjs";
+import { SignInButton, CreateOrganization } from "@clerk/nextjs";
 import {
   FileText,
   FolderOpen,
@@ -8,6 +8,7 @@ import {
   Clock,
   ArrowRight,
   ShieldAlert,
+  Building2,
 } from "lucide-react";
 import { getStore } from "@/server/context";
 import { Badge } from "@/components/ui/badge";
@@ -43,14 +44,44 @@ export default async function DossiersPage(): Promise<React.JSX.Element> {
     );
   }
 
-  const tenantId = orgId || "default-dept";
+  // Force Organization Creation: A signed-in user MUST create or join an organization
+  if (!orgId) {
+    return (
+      <div className="flex-1 max-w-2xl w-full mx-auto p-6 sm:p-12 flex flex-col items-center justify-center space-y-6">
+        <div className="text-center space-y-3 max-w-md">
+          <div className="w-14 h-14 rounded-2xl bg-gold/15 flex items-center justify-center text-primary border border-primary/20 mx-auto">
+            <Building2 className="w-7 h-7" />
+          </div>
+          <h1 className="text-3xl font-story font-semibold tracking-tight text-foreground">
+            Organization Setup Required
+          </h1>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Welcome to Samvaad AI. All incident dossiers, multimodal evidence, and sovereign disclosures are strictly scoped to verified department organizations. Please create your department organization to proceed.
+          </p>
+        </div>
+
+        <div className="w-full flex justify-center pt-2">
+          <CreateOrganization
+            afterCreateOrganizationUrl="/dossiers"
+            appearance={{
+              elements: {
+                card: "shadow-none border border-border/80 bg-card rounded-2xl",
+                rootBox: "w-full max-w-md",
+              },
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  const tenantId = orgId;
   const store = getStore();
 
   // Map Clerk Organization role to 3-tier sovereign RBAC:
   // - org:admin -> "approver"
   // - org:member -> "contributor"
   // - org:auditor -> "auditor"
-  // Personal accounts default to approver in their workspace ledger
   let userRole: MembershipRole = "approver";
   if (orgRole === "org:admin") {
     userRole = "approver";

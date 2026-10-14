@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 import { SignInButton } from "@clerk/nextjs";
 import { ShieldAlert } from "lucide-react";
@@ -38,7 +38,12 @@ export default async function DossierDetailPage({ params }: DossierPageProps): P
     );
   }
 
-  const tenantId = orgId || "default-dept";
+  // Force Organization: If no active organization, redirect to dossiers page setup
+  if (!orgId) {
+    redirect("/dossiers");
+  }
+
+  const tenantId = orgId;
   const store = getStore();
 
   let userRole: MembershipRole = "approver";
@@ -57,11 +62,8 @@ export default async function DossierDetailPage({ params }: DossierPageProps): P
     }
   }
 
-  // Look up document scoped to tenant, with fallback to cross-tenant ID
-  let doc = await store.get({ id, tenantId });
-  if (!doc) {
-    doc = await store.get({ id });
-  }
+  // Look up document strictly scoped to active department organization
+  const doc = await store.get({ id, tenantId });
 
   if (!doc) {
     notFound();

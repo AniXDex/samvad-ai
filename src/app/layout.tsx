@@ -116,9 +116,9 @@ export default function RootLayout({
                   </SignUpButton>
                 </Show>
                 <Show when="signed-in">
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-2">
                     <OrganizationSwitcher
-                      hidePersonal={false}
+                      hidePersonal={true}
                       afterCreateOrganizationUrl="/dossiers"
                       afterSelectOrganizationUrl="/dossiers"
                       afterLeaveOrganizationUrl="/dossiers"
@@ -130,6 +130,13 @@ export default function RootLayout({
                         },
                       }}
                     />
+                    <Link
+                      href="/create-organization"
+                      className="hidden sm:inline-flex text-[11px] font-medium px-2.5 py-1 rounded-full border border-dashed border-border/80 text-muted-foreground hover:text-foreground hover:border-border transition-colors items-center gap-1"
+                      title="Create a new Department or Agency Organization"
+                    >
+                      + New Org
+                    </Link>
                     <UserButton
                       appearance={{
                         elements: {

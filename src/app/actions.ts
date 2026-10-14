@@ -47,10 +47,12 @@ export async function createDocumentAction(formData: FormData): Promise<void> {
   if (!isAuthenticated || !userId) {
     throw new Error("Authentication required to create a press dossier.");
   }
+  if (!orgId) {
+    throw new Error("Active organization required. Please create or select a department organization.");
+  }
 
   const title = formData.get("title");
-  const formTenant = formData.get("tenantId");
-  const tenantId = orgId || (typeof formTenant === "string" && formTenant.trim() ? formTenant.trim() : "default-dept");
+  const tenantId = orgId;
   const domainProfileId = formData.get("domainProfileId") || "public-safety";
 
   if (typeof title !== "string" || !title.trim()) {
@@ -279,23 +281,6 @@ export async function searchPrecedentsAction(input: {
 
   try {
     const vectorIndex = getVectorIndex();
-
-    // Ensure baseline department precedents exist in memory index
-    await vectorIndex.upsertPoint({
-      id: "precedent-cyber-1",
-      tenantId: input.tenantId,
-      vector: [0.95, 0.05, 0.0],
-      text: "FIR No. 112/2025: Apprehension of online banking fraud syndicate. Three accused remanded to judicial custody; forensic logs preserved.",
-      metadata: { department: "Cyber Crime Police Station", year: 2025 },
-    });
-
-    await vectorIndex.upsertPoint({
-      id: "precedent-cyber-2",
-      tenantId: input.tenantId,
-      vector: [0.85, 0.15, 0.0],
-      text: "FIR No. 240/2025: Phishing call center busted. Electronic gadgets and forged identity documents recovered. No casualties reported.",
-      metadata: { department: "Cyber Crime Police Station", year: 2025 },
-    });
 
     const searchRes = await vectorIndex.searchSimilar({
       tenantId: input.tenantId,

@@ -100,27 +100,38 @@ export function ReviewEditor({
   const canApprove = userRole === "approver" && status === "draft";
   const isAuditor = userRole === "auditor";
 
-  const initialDiff = doc.revisions[0]?.diff as { domainProfileId?: string } | undefined;
-  const domainProfile = getDomainProfile(initialDiff?.domainProfileId);
+  const latestRev = doc.revisions[doc.revisions.length - 1];
+  const latestDiff = (latestRev?.diff ?? doc.revisions[0]?.diff) as {
+    headline1?: string;
+    headline2?: string;
+    headline3?: string;
+    summary?: string;
+    detail?: string;
+    secondaryHeadline?: string;
+    secondarySummary?: string;
+    domainProfileId?: string;
+  } | undefined;
 
-  // Editable draft states
-  const [headline1, setHeadline1] = React.useState("FIR Registered in Online Cyber Fraud Scheme, Jaipur");
-  const [headline2, setHeadline2] = React.useState("Three Accused Persons Apprehended by Police Team");
-  const [headline3, setHeadline3] = React.useState("Official Statement Issued: Full Inquiry Underway");
-  const [summary, setSummary] = React.useState(
-    "Police authorities have registered an FIR regarding an online fraudulent scheme. Three accused persons have been arrested following a targeted operation. The exact amount and detailed charges remain subject to ongoing investigation."
-  );
-  const [detail, setDetail] = React.useState(
-    "On receipt of formal complaints, an investigation was initiated into fraudulent digital transactions. Three accused individuals were taken into custody. Police seized electronic evidence and bank records for forensic auditing. Further legal proceedings are in progress under relevant sections of the law."
-  );
+  const domainProfile = getDomainProfile(latestDiff?.domainProfileId);
+
+  // Dynamic draft states derived strictly from document revisions (zero dummy mock data)
+  const [headline1, setHeadline1] = React.useState(latestDiff?.headline1 ?? doc.title ?? "");
+  const [headline2, setHeadline2] = React.useState(latestDiff?.headline2 ?? "");
+  const [headline3, setHeadline3] = React.useState(latestDiff?.headline3 ?? "");
+  const [summary, setSummary] = React.useState(latestDiff?.summary ?? "");
+  const [detail, setDetail] = React.useState(latestDiff?.detail ?? "");
 
   // Secondary bundle preview state (injected via runtime locale seam)
-  const [secondaryHeadline, setSecondaryHeadline] = React.useState(
-    "[Secondary Locale Headline: Case registered in cyber fraud inquiry]"
-  );
-  const [secondarySummary, setSecondarySummary] = React.useState(
-    "[Secondary Locale Summary: Three accused individuals apprehended; evidence collected for investigation]"
-  );
+  const [secondaryHeadline, setSecondaryHeadline] = React.useState(latestDiff?.secondaryHeadline ?? "");
+  const [secondarySummary, setSecondarySummary] = React.useState(latestDiff?.secondarySummary ?? "");
+
+  const factsSnapshot = latestRev?.factsSnapshot as {
+    spans?: { sourceId: string; locator: string; text: string }[];
+    claims?: Record<string, { value: string; spanIndex?: number }[]>;
+  } | null | undefined;
+  const extractedSpans = factsSnapshot?.spans ?? [];
+  const claims = factsSnapshot?.claims;
+  const hasClaims = Boolean(claims && Object.values(claims).some((arr) => arr && arr.length > 0));
 
   // Revision state
   const [revisionReason, setRevisionReason] = React.useState("");
@@ -603,70 +614,44 @@ export function ReviewEditor({
                       <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                         Extracted Evidence Locators
                       </h4>
-                      <span className="text-[10px] text-muted-foreground">Click to inspect</span>
+                      {extractedSpans.length > 0 && (
+                        <span className="text-[10px] text-muted-foreground">Click to inspect</span>
+                      )}
                     </div>
 
-                    <div className="space-y-2">
-                      <div
-                        onClick={() => {
-                          setActiveLocator("FIR-P1-L3");
-                          setLeftTab("inspector");
-                        }}
-                        className={cn(
-                          "p-2.5 rounded-xl border transition-all cursor-pointer text-xs",
-                          activeLocator === "FIR-P1-L3"
-                            ? "border-brand bg-brand-soft/20 shadow-xs ring-1 ring-brand/30"
-                            : "border-border/70 bg-card hover:border-border",
-                        )}
-                      >
-                        <span className="text-[10px] font-bold text-foreground font-mono block mb-0.5">
-                          [Locator: FIR-P1-L3]
-                        </span>
-                        <span className="text-[11px] text-muted-foreground">
-                          &quot;FIR No. 402/2026 registered at Cyber Crime Police Station under relevant cyber sections.&quot;
-                        </span>
+                    {extractedSpans.length === 0 ? (
+                      <div className="p-4 rounded-xl border border-dashed border-border/80 text-center space-y-1">
+                        <p className="text-xs text-muted-foreground font-medium">No citation locators extracted yet.</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Upload primary case documents or audio in the Evidence tab above to produce citation groundings.
+                        </p>
                       </div>
-
-                      <div
-                        onClick={() => {
-                          setActiveLocator("FIR-P1-L12");
-                          setLeftTab("inspector");
-                        }}
-                        className={cn(
-                          "p-2.5 rounded-xl border transition-all cursor-pointer text-xs",
-                          activeLocator === "FIR-P1-L12"
-                            ? "border-brand bg-brand-soft/20 shadow-xs ring-1 ring-brand/30"
-                            : "border-border/70 bg-card hover:border-border",
-                        )}
-                      >
-                        <span className="text-[10px] font-bold text-foreground font-mono block mb-0.5">
-                          [Locator: FIR-P1-L12]
-                        </span>
-                        <span className="text-[11px] text-muted-foreground">
-                          &quot;Three individuals apprehended; electronic devices and transaction logs recovered for investigation.&quot;
-                        </span>
+                    ) : (
+                      <div className="space-y-2">
+                        {extractedSpans.map((span, idx) => (
+                          <div
+                            key={idx}
+                            onClick={() => {
+                              setActiveLocator(span.locator);
+                              setLeftTab("inspector");
+                            }}
+                            className={cn(
+                              "p-2.5 rounded-xl border transition-all cursor-pointer text-xs",
+                              activeLocator === span.locator
+                                ? "border-brand bg-brand-soft/20 shadow-xs ring-1 ring-brand/30"
+                                : "border-border/70 bg-card hover:border-border"
+                            )}
+                          >
+                            <span className="text-[10px] font-bold text-foreground font-mono block mb-0.5">
+                              [Locator: {span.locator}]
+                            </span>
+                            <span className="text-[11px] text-muted-foreground leading-relaxed">
+                              &quot;{span.text}&quot;
+                            </span>
+                          </div>
+                        ))}
                       </div>
-
-                      <div
-                        onClick={() => {
-                          setActiveLocator("AUDIO-01:34");
-                          setLeftTab("inspector");
-                        }}
-                        className={cn(
-                          "p-2.5 rounded-xl border transition-all cursor-pointer text-xs",
-                          activeLocator === "AUDIO-01:34"
-                            ? "border-sky bg-sky-soft/20 shadow-xs ring-1 ring-sky/30"
-                            : "border-border/70 bg-card hover:border-border",
-                        )}
-                      >
-                        <span className="text-[10px] font-bold text-sky font-mono block mb-0.5">
-                          [Locator: AUDIO-01:34]
-                        </span>
-                        <span className="text-[11px] text-muted-foreground">
-                          &quot;Casualty details: No physical injuries sustained during apprehension.&quot;
-                        </span>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -884,55 +869,29 @@ export function ReviewEditor({
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    <div className="p-3 rounded-xl border border-border/80 bg-card space-y-1 shadow-xs">
-                      <span className="text-[10px] text-muted-foreground font-semibold uppercase">Event</span>
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-foreground">Cyber Fraud Scheme</span>
-                        <Badge variant="sage" className="text-[10px]">Confirmed</Badge>
-                      </div>
+                  {!hasClaims || !claims ? (
+                    <div className="p-8 rounded-xl border border-dashed border-border/80 text-center space-y-2">
+                      <p className="text-xs text-muted-foreground font-medium">Fact matrix pending verification.</p>
+                      <p className="text-[11px] text-muted-foreground max-w-sm mx-auto">
+                        Evidence has not been structured yet. Upload and analyze primary case materials to extract confirmed facts and confidence metrics.
+                      </p>
                     </div>
-
-                    <div className="p-3 rounded-xl border border-border/80 bg-card space-y-1 shadow-xs">
-                      <span className="text-[10px] text-muted-foreground font-semibold uppercase">Location</span>
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-foreground">Jaipur, Rajasthan</span>
-                        <Badge variant="sage" className="text-[10px]">Confirmed</Badge>
-                      </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      {Object.entries(claims).map(([category, items]) => {
+                        if (!items || items.length === 0) return null;
+                        return items.map((item, idx) => (
+                          <div key={`${category}-${idx}`} className="p-3 rounded-xl border border-border/80 bg-card space-y-1 shadow-xs">
+                            <span className="text-[10px] text-muted-foreground font-semibold uppercase">{category}</span>
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold text-foreground">{item.value}</span>
+                              <Badge variant="sage" className="text-[10px]">Extracted</Badge>
+                            </div>
+                          </div>
+                        ));
+                      })}
                     </div>
-
-                    <div className="p-3 rounded-xl border border-border/80 bg-card space-y-1 shadow-xs">
-                      <span className="text-[10px] text-muted-foreground font-semibold uppercase">Accused</span>
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-foreground">3 Individuals (Names Withheld)</span>
-                        <Badge variant="sage" className="text-[10px]">Confirmed</Badge>
-                      </div>
-                    </div>
-
-                    <div className="p-3 rounded-xl border border-border/80 bg-card space-y-1 shadow-xs">
-                      <span className="text-[10px] text-muted-foreground font-semibold uppercase">Casualties</span>
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-foreground">Zero Reported</span>
-                        <Badge variant="sage" className="text-[10px]">Confirmed</Badge>
-                      </div>
-                    </div>
-
-                    <div className="p-3 rounded-xl border border-border/80 bg-card space-y-1 shadow-xs">
-                      <span className="text-[10px] text-muted-foreground font-semibold uppercase">Financial Loss</span>
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-foreground">Subject to Audit</span>
-                        <Badge variant="outline" className="text-[10px]">Not Stated</Badge>
-                      </div>
-                    </div>
-
-                    <div className="p-3 rounded-xl border border-border/80 bg-card space-y-1 shadow-xs">
-                      <span className="text-[10px] text-muted-foreground font-semibold uppercase">Action Taken</span>
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-foreground">Custody &amp; Forensic Seizure</span>
-                        <Badge variant="sage" className="text-[10px]">Confirmed</Badge>
-                      </div>
-                    </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
