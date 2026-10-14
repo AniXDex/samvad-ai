@@ -53,6 +53,7 @@ export async function createDocumentAction(formData: FormData): Promise<void> {
 export async function approveDocumentAction(input: {
   documentId: string;
   tenantId: string;
+  waitTokenId?: string;
 }): Promise<ActionResult<{ status: string }>> {
   const { userId, isAuthenticated } = await auth();
   if (!isAuthenticated || !userId) {
@@ -69,6 +70,30 @@ export async function approveDocumentAction(input: {
 
     if (!approved) {
       return { success: false, error: "Document not found or tenant mismatch." };
+    }
+
+    if (input.waitTokenId) {
+      try {
+        const triggerSecretKey = process.env.TRIGGER_SECRET_KEY;
+        if (triggerSecretKey) {
+          await fetch(`https://api.trigger.dev/api/v1/waitpoints/tokens/${input.waitTokenId}/complete`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${triggerSecretKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              data: {
+                status: "approved",
+                approvedBy: userId,
+                attestationConfirmed: true,
+              },
+            }),
+          });
+        }
+      } catch (tokenErr) {
+        console.error("Trigger waitpoint token completion note:", tokenErr);
+      }
     }
 
     revalidatePath(`/dossiers/${input.documentId}`);
