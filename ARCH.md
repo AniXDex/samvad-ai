@@ -21,6 +21,9 @@ small interface at its seam; tests cross the same seam as callers.
   protected `documents.create/list` with zod validation) over the
   `DocumentsStore` port (memory + Drizzle adapters); `context.ts` maps Managed
   sessions at the route layer only; per-request client factories.
+- ✅ `src/lib/verify` — Laya Studio verifier (Jev-wire-compatible):
+  `verifyNoul` port with HTTP + fake adapters, ≤32-question/state-budget
+  guards, thresholds with callers. Key verified (6000 free credits).
 - `src/app/editor` — shadcn approval UI (components via `npx shadcn add`). Next feat.
 
 ## Services
