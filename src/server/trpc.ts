@@ -3,7 +3,7 @@
  *
  * Interface: {@link createAppRouter} builds the router from an injected
  * {@link DocumentsStore}; context carries only the session
- * (`{ user: { id } } | null`), mapped from Managed Auth at the route layer.
+ * (`{ user: { id } } | null`), mapped from Clerk at the route layer.
  * `health` is public; everything else goes through `protectedProcedure`,
  * which rejects null sessions with UNAUTHORIZED before any store is touched.
  * Known gap (feat 5): tenant comes from validated input, not from a

@@ -1,19 +1,21 @@
-# SPEC 005 — tRPC + Managed Auth ✅ implemented (feat 4)
+# SPEC 005 — tRPC + Clerk ✅ migrated (feat: clerk)
 
-Modules: `src/lib/auth` (`config.ts` pure validation + `server.ts` thin SDK leaf,
-verified by build + live HTTP, never unit-imported), `src/server/session.ts`
-(pure `resolveSession`), `src/server/documents/store.ts` (port) +
+Modules: `src/server/session.ts` (pure `resolveSession`),
+`src/server/documents/store.ts` (port) +
 `drizzle-documents.ts` (Drizzle adapter, narrows `status` text at runtime),
 `src/server/trpc.ts` (`createAppRouter(store)`; public `health`, protected
 `documents.create/list` with zod tenant/title/limit validation),
-`src/server/context.ts` (route-only: session map + module-scope pool),
-`src/app/api/auth/[...path]` + `src/app/api/trpc/[trpc]` routes,
-`src/lib/trpc/client.ts` (per-request factories, no singletons).
+`src/server/context.ts` (route-only: Clerk `auth()` session map +
+module-scope pool), `src/app/api/trpc/[trpc]` route,
+`src/proxy.ts` (bare `clerkMiddleware` + matcher incl. `/(api|trpc)(.*)` and
+`/__clerk/(.*)`), `src/app/layout.tsx` (`ClerkProvider` in `<body>` with
+shadcn theme + `Show` sign-in/sign-up + `UserButton`),
+`src/app/sign-in/[[...sign-in]]` + `src/app/sign-up/[[...sign-up]]` (Clerk `<SignIn/>`/`<SignUp/>`).
 
-Tests (8): health public, 401-before-store, tenant scoping, BAD_REQUEST
-before store, session mapping incl. malformed, config fail-fast naming vars.
-Live HTTP vs `next start`: `health` 200, `/api/auth/ok` 200 `{"ok":true}`,
-signed-out `documents.list` 401 UNAUTHORIZED — boundary proven end-to-end.
+Tests: health public, 401-before-store, tenant scoping, BAD_REQUEST
+before store, session mapping incl. malformed.
+Live HTTP vs dev server: `health` 200 `{"status":"ok","service":"samvaad-ai"}`,
+`/sign-in` 200, signed-out `documents.list` 401 UNAUTHORIZED — boundary proven end-to-end.
 
-Known gap (feat 5): tenant comes from validated input, not memberships + RLS.
-`NEON_AUTH_COOKIE_SECRET` minted (44-char base64) into `.env.local` + User env.
+Known gap: tenant comes from validated input, not memberships + RLS.
+Clerk is the active auth provider.
