@@ -32,8 +32,16 @@ export async function createDocumentAction(formData: FormData): Promise<void> {
   }
 
   const store = getStore();
+  const tId = tenantId.trim();
+
+  // Ensure author has membership in tenant
+  const existingMembership = await store.getMembership({ userId, tenantId: tId });
+  if (!existingMembership) {
+    await store.addMembership({ userId, tenantId: tId, role: "approver" });
+  }
+
   const doc = await store.create({
-    tenantId: tenantId.trim(),
+    tenantId: tId,
     title: title.trim(),
   });
 
@@ -62,6 +70,13 @@ export async function approveDocumentAction(input: {
 
   try {
     const store = getStore();
+
+    // Verify user is an approver in this tenant
+    const membership = await store.getMembership({ userId, tenantId: input.tenantId });
+    if (!membership || membership.role !== "approver") {
+      return { success: false, error: "Only officers with the approver role can approve press notes." };
+    }
+
     const approved = await store.approve({
       id: input.documentId,
       tenantId: input.tenantId,

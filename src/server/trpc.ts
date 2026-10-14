@@ -6,15 +6,15 @@
  * (`{ user: { id } } | null`), mapped from Clerk at the route layer.
  * `health` is public; everything else goes through `protectedProcedure`,
  * which rejects null sessions with UNAUTHORIZED before any store is touched.
- * Known gap (feat 5): tenant comes from validated input, not from a
- * memberships table + RLS — spoofing is contained by tests asserting the
- * 401 boundary, not by data-layer enforcement yet.
+ * Tenant enforcement: operations require verified membership for the caller
+ * in the target tenant, with role gates (approver for approvals, contributor/approver
+ * for mutations, auditor for read-only).
  */
 import { initTRPC, TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { documentId, tenantId, type R2Module } from "@/lib/r2/r2";
 import { isOk } from "@/lib/result/result";
-import { type DocumentsStore } from "./documents/store";
+import { type DocumentsStore, type MembershipRole } from "./documents/store";
 
 export interface Session {
   readonly user: { readonly id: string };
@@ -45,21 +45,81 @@ const documentInput = z
   });
 
 export function createAppRouter(store: DocumentsStore, r2?: R2Module | null) {
+  async function requireMembership(
+    userId: string,
+    targetTenant: string,
+    requiredRole?: MembershipRole,
+  ) {
+    const membership = await store.getMembership({ userId, tenantId: targetTenant });
+    if (!membership) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: `Tenant membership required for tenant '${targetTenant}'`,
+      });
+    }
+    if (requiredRole === "approver" && membership.role !== "approver") {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: `Approver role required, current role is '${membership.role}'`,
+      });
+    }
+    if (requiredRole === "contributor" && membership.role === "auditor") {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Auditor role has read-only access",
+      });
+    }
+    return membership;
+  }
+
   return t.router({
     health: publicProcedure.query(() => ({ status: "ok" as const, service: "samvaad-ai" as const })),
+
+    memberships: t.router({
+      list: protectedProcedure
+        .query(({ ctx }) => store.listMemberships(ctx.session.user.id)),
+
+      get: protectedProcedure
+        .input(z.object({ tenantId: tenantInput }))
+        .query(({ input, ctx }) =>
+          store.getMembership({ userId: ctx.session.user.id, tenantId: input.tenantId }),
+        ),
+
+      join: protectedProcedure
+        .input(
+          z.object({
+            tenantId: tenantInput,
+            role: z.enum(["contributor", "approver", "auditor"]).default("contributor"),
+          }),
+        )
+        .mutation(({ input, ctx }) =>
+          store.addMembership({
+            userId: ctx.session.user.id,
+            tenantId: input.tenantId,
+            role: input.role,
+          }),
+        ),
+    }),
 
     documents: t.router({
       create: protectedProcedure
         .input(z.object({ tenantId: tenantInput, title: z.string().min(1).max(200) }))
-        .mutation(({ input }) => store.create({ tenantId: input.tenantId, title: input.title })),
+        .mutation(async ({ input, ctx }) => {
+          await requireMembership(ctx.session.user.id, input.tenantId, "contributor");
+          return store.create({ tenantId: input.tenantId, title: input.title });
+        }),
 
       list: protectedProcedure
         .input(z.object({ tenantId: tenantInput, limit: z.number().int().min(1).max(100).default(20) }))
-        .query(({ input }) => store.list(input.tenantId, input.limit)),
+        .query(async ({ input, ctx }) => {
+          await requireMembership(ctx.session.user.id, input.tenantId);
+          return store.list(input.tenantId, input.limit);
+        }),
 
       get: protectedProcedure
         .input(z.object({ tenantId: tenantInput, id: z.string().min(1) }))
-        .query(async ({ input }) => {
+        .query(async ({ input, ctx }) => {
+          await requireMembership(ctx.session.user.id, input.tenantId);
           const doc = await store.get({ id: input.id, tenantId: input.tenantId });
           if (!doc) throw new TRPCError({ code: "NOT_FOUND", message: "document not found" });
           return doc;
@@ -68,6 +128,7 @@ export function createAppRouter(store: DocumentsStore, r2?: R2Module | null) {
       approve: protectedProcedure
         .input(z.object({ tenantId: tenantInput, id: z.string().min(1) }))
         .mutation(async ({ input, ctx }) => {
+          await requireMembership(ctx.session.user.id, input.tenantId, "approver");
           const approved = await store.approve({
             id: input.id,
             tenantId: input.tenantId,
@@ -90,6 +151,7 @@ export function createAppRouter(store: DocumentsStore, r2?: R2Module | null) {
           })
         )
         .mutation(async ({ input, ctx }) => {
+          await requireMembership(ctx.session.user.id, input.tenantId, "contributor");
           return store.addRevision({
             documentId: input.documentId,
             revisionNumber: input.revisionNumber,
@@ -113,7 +175,8 @@ export function createAppRouter(store: DocumentsStore, r2?: R2Module | null) {
             contentLengthBytes: z.number().int().positive().max(500 * 1024 * 1024),
           })
         )
-        .mutation(async ({ input }) => {
+        .mutation(async ({ input, ctx }) => {
+          await requireMembership(ctx.session.user.id, input.tenantId, "contributor");
           if (!r2) throw new TRPCError({ code: "NOT_IMPLEMENTED", message: "storage module not wired" });
           const tId = tenantId(input.tenantId);
           const dId = documentId(input.documentId);
@@ -146,7 +209,8 @@ export function createAppRouter(store: DocumentsStore, r2?: R2Module | null) {
             sha256: z.string().optional(),
           })
         )
-        .mutation(async ({ input }) => {
+        .mutation(async ({ input, ctx }) => {
+          await requireMembership(ctx.session.user.id, input.tenantId, "contributor");
           return store.addSource({
             documentId: input.documentId,
             kind: input.kind,

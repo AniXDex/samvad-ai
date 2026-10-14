@@ -8,9 +8,11 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "@/lib/db/schema";
 import {
   isDocumentStatus,
+  isMembershipRole,
   type DocumentDetailRecord,
   type DocumentRecord,
   type DocumentsStore,
+  type MembershipRecord,
   type RevisionRecord,
   type SourceRecord,
 } from "./store";
@@ -209,6 +211,70 @@ export function createDrizzleDocumentsStore(db: NodePgDatabase<typeof schema>): 
         status: row.status,
         createdAt: row.createdAt,
       };
+    },
+
+    async getMembership(input): Promise<MembershipRecord | null> {
+      const rows = await db
+        .select()
+        .from(schema.memberships)
+        .where(
+          and(
+            eq(schema.memberships.userId, input.userId),
+            eq(schema.memberships.tenantId, input.tenantId),
+          )
+        )
+        .limit(1);
+      const row = rows[0];
+      if (!row || !isMembershipRole(row.role)) return null;
+      return {
+        id: row.id,
+        userId: row.userId,
+        tenantId: row.tenantId,
+        role: row.role,
+        createdAt: row.createdAt,
+      };
+    },
+
+    async addMembership(input): Promise<MembershipRecord> {
+      const inserted = await db
+        .insert(schema.memberships)
+        .values({
+          userId: input.userId,
+          tenantId: input.tenantId,
+          role: input.role,
+        })
+        .returning();
+      const row = inserted[0];
+      if (!row || !isMembershipRole(row.role)) {
+        throw new Error("membership insert returned unexpected row");
+      }
+      return {
+        id: row.id,
+        userId: row.userId,
+        tenantId: row.tenantId,
+        role: row.role,
+        createdAt: row.createdAt,
+      };
+    },
+
+    async listMemberships(userId): Promise<readonly MembershipRecord[]> {
+      const rows = await db
+        .select()
+        .from(schema.memberships)
+        .where(eq(schema.memberships.userId, userId));
+      const records: MembershipRecord[] = [];
+      for (const row of rows) {
+        if (isMembershipRole(row.role)) {
+          records.push({
+            id: row.id,
+            userId: row.userId,
+            tenantId: row.tenantId,
+            role: row.role,
+            createdAt: row.createdAt,
+          });
+        }
+      }
+      return records;
     },
   };
 }

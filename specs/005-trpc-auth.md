@@ -17,5 +17,10 @@ before store, session mapping incl. malformed.
 Live HTTP vs dev server: `health` 200 `{"status":"ok","service":"samvaad-ai"}`,
 `/sign-in` 200, signed-out `documents.list` 401 UNAUTHORIZED — boundary proven end-to-end.
 
-Known gap: tenant comes from validated input, not memberships + RLS.
+Memberships + RBAC gap closed:
+- `memberships` table in Drizzle schema queried via `getMembership`, `addMembership`, `listMemberships`.
+- tRPC router enforces verified tenant membership across all operations.
+- Role checks: `approver` strictly required for `documents.approve`, `contributor`/`approver` required for mutations, `auditor` restricted to read-only (`documents.list`/`get`).
+- Unit tested in `src/server/trpc.test.ts` (11/11 passed).
 Clerk is the active auth provider.
+

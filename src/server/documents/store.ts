@@ -47,6 +47,21 @@ export interface DocumentDetailRecord extends DocumentRecord {
   readonly revisions: readonly RevisionRecord[];
 }
 
+export const MEMBERSHIP_ROLES = ["contributor", "approver", "auditor"] as const;
+export type MembershipRole = (typeof MEMBERSHIP_ROLES)[number];
+
+export interface MembershipRecord {
+  readonly id: string;
+  readonly userId: string;
+  readonly tenantId: string;
+  readonly role: MembershipRole;
+  readonly createdAt: Date;
+}
+
+export function isMembershipRole(value: string): value is MembershipRole {
+  return (MEMBERSHIP_ROLES as readonly string[]).includes(value);
+}
+
 export interface DocumentsStore {
   create(input: { tenantId: string; title: string }): Promise<DocumentRecord>;
   list(tenantId: string, limit: number): Promise<readonly DocumentRecord[]>;
@@ -54,6 +69,9 @@ export interface DocumentsStore {
   addSource(input: { documentId: string; kind: string; r2Key?: string; sha256?: string; metadata?: unknown }): Promise<SourceRecord>;
   addRevision(input: { documentId: string; revisionNumber: number; authorId: string; diff: unknown; reason: string; factsSnapshot?: unknown; bundleSnapshot?: unknown }): Promise<RevisionRecord>;
   approve(input: { id: string; tenantId: string; approvedBy: string }): Promise<DocumentRecord | null>;
+  getMembership(input: { userId: string; tenantId: string }): Promise<MembershipRecord | null>;
+  addMembership(input: { userId: string; tenantId: string; role: MembershipRole }): Promise<MembershipRecord>;
+  listMemberships(userId: string): Promise<readonly MembershipRecord[]>;
 }
 
 export function isDocumentStatus(value: string): value is DocumentStatus {
@@ -64,9 +82,11 @@ export function createMemoryDocumentsStore(): DocumentsStore & { size(): number 
   const docs: DocumentRecord[] = [];
   const sources: SourceRecord[] = [];
   const revisions: RevisionRecord[] = [];
+  const memberships: MembershipRecord[] = [];
   let docCounter = 0;
   let sourceCounter = 0;
   let revCounter = 0;
+  let memCounter = 0;
 
   return {
     async create(input) {
@@ -152,6 +172,32 @@ export function createMemoryDocumentsStore(): DocumentsStore & { size(): number 
         }
       }
       return updated;
+    },
+    async getMembership(input) {
+      const found = memberships.find((m) => m.userId === input.userId && m.tenantId === input.tenantId);
+      return found ?? null;
+    },
+    async addMembership(input) {
+      const existing = memberships.find((m) => m.userId === input.userId && m.tenantId === input.tenantId);
+      if (existing) {
+        const updated: MembershipRecord = { ...existing, role: input.role };
+        const idx = memberships.indexOf(existing);
+        memberships[idx] = updated;
+        return updated;
+      }
+      memCounter += 1;
+      const row: MembershipRecord = {
+        id: `mem-${memCounter}`,
+        userId: input.userId,
+        tenantId: input.tenantId,
+        role: input.role,
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+      };
+      memberships.push(row);
+      return row;
+    },
+    async listMemberships(userId) {
+      return memberships.filter((m) => m.userId === userId);
     },
     size() {
       return docs.length;

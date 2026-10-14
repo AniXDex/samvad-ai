@@ -20,8 +20,38 @@ describe("tRPC router", () => {
     expect(store.size()).toBe(0);
   });
 
+  test("rejects access to tenants where user has no membership", async () => {
+    const store = createMemoryDocumentsStore();
+    const caller = createAppRouter(store).createCaller(signedIn);
+    await expect(caller.documents.create({ tenantId: "unauthorized-dept", title: "x" })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    await expect(caller.documents.list({ tenantId: "unauthorized-dept" })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+  });
+
+  test("memberships router allows joining and listing memberships", async () => {
+    const store = createMemoryDocumentsStore();
+    const caller = createAppRouter(store).createCaller(signedIn);
+
+    const joined = await caller.memberships.join({ tenantId: "t-1", role: "approver" });
+    expect(joined.tenantId).toBe("t-1");
+    expect(joined.role).toBe("approver");
+
+    const list = await caller.memberships.list();
+    expect(list).toHaveLength(1);
+    expect(list[0]?.tenantId).toBe("t-1");
+
+    const fetched = await caller.memberships.get({ tenantId: "t-1" });
+    expect(fetched?.role).toBe("approver");
+  });
+
   test("documents round-trip is tenant-scoped", async () => {
-    const caller = createAppRouter(createMemoryDocumentsStore()).createCaller(signedIn);
+    const store = createMemoryDocumentsStore();
+    await store.addMembership({ userId: "user-1", tenantId: "t-1", role: "contributor" });
+    await store.addMembership({ userId: "user-1", tenantId: "t-2", role: "contributor" });
+    const caller = createAppRouter(store).createCaller(signedIn);
     await caller.documents.create({ tenantId: "t-1", title: "first" });
     await caller.documents.create({ tenantId: "t-2", title: "other tenant" });
     const mine = await caller.documents.list({ tenantId: "t-1" });
@@ -42,6 +72,8 @@ describe("tRPC router", () => {
 
   test("documents.get returns detail with sources and revisions", async () => {
     const store = createMemoryDocumentsStore();
+    await store.addMembership({ userId: "user-1", tenantId: "t-1", role: "contributor" });
+    await store.addMembership({ userId: "user-1", tenantId: "t-2", role: "contributor" });
     const caller = createAppRouter(store).createCaller(signedIn);
     const created = await caller.documents.create({ tenantId: "t-1", title: "Press Note 1" });
 
@@ -55,8 +87,10 @@ describe("tRPC router", () => {
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
-  test("documents.addRevision and documents.approve lifecycle", async () => {
+  test("documents.addRevision and documents.approve lifecycle with role enforcement", async () => {
     const store = createMemoryDocumentsStore();
+    // Start as contributor
+    await store.addMembership({ userId: "user-1", tenantId: "t-1", role: "contributor" });
     const caller = createAppRouter(store).createCaller(signedIn);
     const created = await caller.documents.create({ tenantId: "t-1", title: "FIR Press Release" });
 
@@ -70,6 +104,14 @@ describe("tRPC router", () => {
     expect(rev.authorId).toBe("user-1");
     expect(rev.approved).toBe(false);
 
+    // Contributor cannot approve
+    await expect(caller.documents.approve({ tenantId: "t-1", id: created.id })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+
+    // Elevate to approver
+    await store.addMembership({ userId: "user-1", tenantId: "t-1", role: "approver" });
+
     const approved = await caller.documents.approve({ tenantId: "t-1", id: created.id });
     expect(approved.status).toBe("approved");
 
@@ -79,6 +121,21 @@ describe("tRPC router", () => {
     expect(detail.revisions[0]?.approvedBy).toBe("user-1");
   });
 
+  test("auditor role is read-only", async () => {
+    const store = createMemoryDocumentsStore();
+    await store.addMembership({ userId: "user-1", tenantId: "t-1", role: "auditor" });
+    const caller = createAppRouter(store).createCaller(signedIn);
+
+    // Auditor can list
+    const list = await caller.documents.list({ tenantId: "t-1" });
+    expect(list).toEqual([]);
+
+    // Auditor cannot create or addRevision
+    await expect(caller.documents.create({ tenantId: "t-1", title: "Audit Log" })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+  });
+
   test("r2.mint and r2.complete create grants and attach sources", async () => {
     const { createMemoryConnection } = await import("@/lib/r2/adapters/memory");
     const { createR2Module } = await import("@/lib/r2/r2");
@@ -86,6 +143,7 @@ describe("tRPC router", () => {
     const r2 = createR2Module({ connection, bucket: "test-bucket" });
 
     const store = createMemoryDocumentsStore();
+    await store.addMembership({ userId: "user-1", tenantId: "t-1", role: "contributor" });
     const caller = createAppRouter(store, r2).createCaller(signedIn);
     const created = await caller.documents.create({ tenantId: "t-1", title: "Crime Report" });
 
@@ -116,6 +174,7 @@ describe("tRPC router", () => {
 
   test("r2.mint throws NOT_IMPLEMENTED when R2 is not provided", async () => {
     const store = createMemoryDocumentsStore();
+    await store.addMembership({ userId: "user-1", tenantId: "t-1", role: "contributor" });
     const caller = createAppRouter(store, null).createCaller(signedIn);
     await expect(
       caller.r2.mint({
