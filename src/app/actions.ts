@@ -24,6 +24,7 @@ export async function createDocumentAction(formData: FormData): Promise<void> {
 
   const title = formData.get("title");
   const tenantId = formData.get("tenantId") || "default-dept";
+  const domainProfileId = formData.get("domainProfileId") || "public-safety";
 
   if (typeof title !== "string" || !title.trim()) {
     throw new Error("Title is required.");
@@ -52,7 +53,11 @@ export async function createDocumentAction(formData: FormData): Promise<void> {
     revisionNumber: 1,
     authorId: userId,
     reason: "Initial dossier scaffolding",
-    diff: { title: doc.title, status: doc.status },
+    diff: {
+      title: doc.title,
+      status: doc.status,
+      domainProfileId: typeof domainProfileId === "string" ? domainProfileId : "public-safety",
+    },
   });
 
   revalidatePath("/dossiers");

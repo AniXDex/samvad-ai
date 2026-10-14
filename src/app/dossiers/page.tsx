@@ -4,18 +4,16 @@ import { SignInButton } from "@clerk/nextjs";
 import {
   FileText,
   FolderOpen,
-  Plus,
   ShieldCheck,
   Clock,
   ArrowRight,
   ShieldAlert,
 } from "lucide-react";
 import { getStore } from "@/server/context";
-import { createDocumentAction } from "@/app/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { WorkspaceSelector } from "@/components/dossier/workspace-selector";
 
 export default async function DossiersPage(): Promise<React.JSX.Element> {
   const { isAuthenticated, userId } = await auth();
@@ -29,15 +27,15 @@ export default async function DossiersPage(): Promise<React.JSX.Element> {
         </div>
         <div className="space-y-2 max-w-md">
           <h1 className="text-2xl font-story font-semibold tracking-tight text-foreground">
-            Officer Authorization Required
+            Authorization Required
           </h1>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Access to police incident dossiers and sovereign press note generation requires an authorized officer session.
+            Access to verified incident synthesis, multimodal evidence analysis, and public disclosure generation requires an authorized officer or manager session.
           </p>
         </div>
         <SignInButton mode="modal">
           <Button variant="default" size="lg">
-            Sign In to Police Portal
+            Sign In to Incident Portal
           </Button>
         </SignInButton>
       </div>
@@ -53,52 +51,39 @@ export default async function DossiersPage(): Promise<React.JSX.Element> {
   const approvedCount = documents.filter((d) => d.status === "approved").length;
 
   return (
-    <div className="flex-1 max-w-6xl w-full mx-auto p-6 sm:p-10 space-y-10">
+    <div className="flex-1 max-w-6xl w-full mx-auto p-6 sm:p-10 space-y-8">
       {/* Editorial Header bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-border/60">
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2">
-            <Link
-              href="/"
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors font-medium"
-            >
-              ← Portal Home
-            </Link>
-            <span className="text-border">•</span>
-            <span className="text-xs text-muted-foreground font-mono">
-              Unit: <span className="text-foreground">{tenantId}</span>
-            </span>
-            <span className="text-border">•</span>
-            <Badge variant="sage" className="text-[10px] py-0 px-2 font-mono">
-              Live Gateway
-            </Badge>
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-story font-semibold tracking-tight text-foreground">
-            Incident Dossiers & Press Notes
-          </h1>
-          <p className="text-sm text-muted-foreground max-w-2xl">
-            Logged in as <strong className="text-foreground font-medium">{officerName}</strong>. Manage FIR evidence, verify citation-pinned facts, and digitally certify bilingual releases.
-          </p>
+      <div className="space-y-2 pb-6 border-b border-border/60">
+        <div className="flex items-center gap-2">
+          <Link
+            href="/"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors font-medium"
+          >
+            ← Portal Home
+          </Link>
+          <span className="text-border">•</span>
+          <span className="text-xs text-muted-foreground font-mono">
+            Tenant: <span className="text-foreground">{tenantId}</span>
+          </span>
+          <span className="text-border">•</span>
+          <Badge variant="sage" className="text-[10px] py-0 px-2 font-mono">
+            High-Assurance Gateway
+          </Badge>
         </div>
-
-        {/* Quick create action card */}
-        <form
-          action={createDocumentAction}
-          className="flex items-center gap-2.5 p-2 bg-card rounded-xl ring-1 ring-foreground/10 shadow-xs"
-        >
-          <input type="hidden" name="tenantId" value={tenantId} />
-          <Input
-            name="title"
-            placeholder="New Case (e.g. FIR 402/2026 Fraud)"
-            className="w-56 sm:w-64 border-0 bg-transparent focus-visible:ring-0 shadow-none text-sm placeholder:text-muted-foreground/60"
-            required
-          />
-          <Button type="submit" size="sm" className="gap-1.5 shrink-0">
-            <Plus className="w-4 h-4" />
-            <span>Create Dossier</span>
-          </Button>
-        </form>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-story font-semibold tracking-tight text-foreground">
+              Incident Synthesis & Disclosure Desk
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+              Logged in as <strong className="text-foreground font-medium">{officerName}</strong>. Synthesize raw evidence into citation-grounded press releases, situation reports, and public statements across civic, emergency, and legal sectors.
+            </p>
+          </div>
+        </div>
       </div>
+
+      {/* Multi-Domain Workspace Selector & Scaffolding */}
+      <WorkspaceSelector tenantId={tenantId} />
 
       {/* Stats row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
@@ -121,7 +106,7 @@ export default async function DossiersPage(): Promise<React.JSX.Element> {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardDescription className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                In Officer Review
+                In Review
               </CardDescription>
               <Clock className="w-4 h-4 text-primary" />
             </div>
@@ -156,7 +141,7 @@ export default async function DossiersPage(): Promise<React.JSX.Element> {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-story font-semibold tracking-tight text-foreground">
-            Active Police Dossiers
+            Active Incident Disclosures
           </h2>
           <span className="text-xs text-muted-foreground font-mono">
             Showing {documents.length} records
@@ -170,10 +155,10 @@ export default async function DossiersPage(): Promise<React.JSX.Element> {
             </div>
             <div className="space-y-1">
               <p className="font-story font-medium text-base text-foreground">
-                No case dossiers registered yet
+                No incident matters registered yet
               </p>
               <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                Use the create input above to initialize your first incident record and upload case evidence.
+                Select your industry domain profile above to scaffold your first incident dossier.
               </p>
             </div>
           </Card>

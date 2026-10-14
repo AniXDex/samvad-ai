@@ -40,6 +40,7 @@ import { cn } from "@/lib/utils";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DirectUploadDropzone } from "@/components/dossier/direct-upload-dropzone";
 import { PdfInspector } from "@/components/reader/pdf-inspector";
+import { getDomainProfile } from "@/lib/domain/profiles";
 import type { DocumentStatus } from "@/server/documents/store";
 
 export interface SourceItem {
@@ -88,6 +89,9 @@ export function ReviewEditor({ initialDoc, currentUserId }: ReviewEditorProps): 
   const [status, setStatus] = React.useState<DocumentStatus>(initialDoc.status);
   const [activeLocator, setActiveLocator] = React.useState<string | null>(null);
   const [leftTab, setLeftTab] = React.useState<string>("sources");
+
+  const initialDiff = doc.revisions[0]?.diff as { domainProfileId?: string } | undefined;
+  const domainProfile = getDomainProfile(initialDiff?.domainProfileId);
 
   // Editable draft states
   const [headline1, setHeadline1] = React.useState("FIR Registered in Online Cyber Fraud Scheme, Jaipur");
@@ -240,14 +244,19 @@ export function ReviewEditor({ initialDoc, currentUserId }: ReviewEditorProps): 
             <span className="text-muted-foreground/60">•</span>
             <span className="text-xs text-muted-foreground font-mono">Dept: {doc.tenantId}</span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <h1 className="font-story text-2xl sm:text-3xl font-semibold tracking-tight text-foreground">
               {doc.title}
             </h1>
+            <Badge variant={domainProfile.badgeVariant} className="text-xs">
+              {domainProfile.entityName}
+            </Badge>
             {status === "approved" ? (
-              <Badge variant="sage" className="gap-1 px-2.5 py-0.5">
-                <ShieldCheck className="size-3" /> Approved &amp; Sealed
-              </Badge>
+              <Link href={`/verify/${doc.id}`} target="_blank">
+                <Badge variant="sage" className="gap-1 px-2.5 py-0.5 hover:ring-1 hover:ring-emerald-500/50 cursor-pointer">
+                  <ShieldCheck className="size-3" /> Public Seal Certificate ↗
+                </Badge>
+              </Link>
             ) : (
               <Badge variant="gold" className="gap-1 px-2.5 py-0.5">
                 <span className="size-1.5 rounded-full bg-gold animate-pulse" />
