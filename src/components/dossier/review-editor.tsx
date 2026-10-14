@@ -3,6 +3,19 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import {
+  ArrowLeft,
+  FileText,
+  Volume2,
+  Sparkles,
+  History,
+  Scale,
+  Languages,
+  AlertTriangle,
+  Upload,
+  CheckCircle2,
+  ShieldCheck,
+} from "lucide-react";
 import { checkNeutrality, type NeutralityFlag } from "@/lib/press-facts/neutrality";
 import { HEADLINE_MAX_WORDS } from "@/lib/press-facts/bundle";
 import { approveDocumentAction, saveRevisionAction, searchPrecedentsAction } from "@/app/actions";
@@ -23,6 +36,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { DirectUploadDropzone } from "@/components/dossier/direct-upload-dropzone";
+import { PdfInspector } from "@/components/reader/pdf-inspector";
 import type { DocumentStatus } from "@/server/documents/store";
 
 export interface SourceItem {
@@ -69,6 +86,8 @@ export function ReviewEditor({ initialDoc, currentUserId }: ReviewEditorProps): 
   const router = useRouter();
   const [doc, setDoc] = React.useState<DocumentDetail>(initialDoc);
   const [status, setStatus] = React.useState<DocumentStatus>(initialDoc.status);
+  const [activeLocator, setActiveLocator] = React.useState<string | null>(null);
+  const [leftTab, setLeftTab] = React.useState<string>("sources");
 
   // Editable draft states
   const [headline1, setHeadline1] = React.useState("FIR Registered in Online Cyber Fraud Scheme, Jaipur");
@@ -198,29 +217,41 @@ export function ReviewEditor({ initialDoc, currentUserId }: ReviewEditorProps): 
     }
   }
 
+
+  const activeSource = doc.sources.find((s) => s.kind === "pdf" || s.kind === "image");
+  const activeSourceUrl = activeSource?.r2Key
+    ? `https://storage.samvaad.ai/${activeSource.r2Key}`
+    : undefined;
+
   return (
     <div className="flex-1 flex flex-col space-y-6 max-w-7xl w-full mx-auto p-4 sm:p-8">
-      {/* Top Navigation & Status Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border/50">
+      {/* Top Header & Navigation Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border/70">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <Link href="/dossiers" className="text-xs text-muted-foreground hover:text-foreground">
-              ← Back to Case Dossiers
+            <Link
+              href="/dossiers"
+              className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 font-medium"
+            >
+              <ArrowLeft className="size-3" /> Back to Case Dossiers
             </Link>
-            <span className="text-muted-foreground">•</span>
+            <span className="text-muted-foreground/60">•</span>
             <span className="text-xs text-muted-foreground font-mono">Dossier: {doc.id}</span>
-            <span className="text-muted-foreground">•</span>
-            <span className="text-xs text-muted-foreground font-mono">Officer ID: {currentUserId}</span>
+            <span className="text-muted-foreground/60">•</span>
+            <span className="text-xs text-muted-foreground font-mono">Dept: {doc.tenantId}</span>
           </div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{doc.title}</h1>
+            <h1 className="font-story text-2xl sm:text-3xl font-semibold tracking-tight text-foreground">
+              {doc.title}
+            </h1>
             {status === "approved" ? (
-              <Badge variant="outline" className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
-                Approved & Digitally Sealed
+              <Badge variant="sage" className="gap-1 px-2.5 py-0.5">
+                <ShieldCheck className="size-3" /> Approved &amp; Sealed
               </Badge>
             ) : (
-              <Badge variant="outline" className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30">
-                Draft (Pending Officer Approval)
+              <Badge variant="gold" className="gap-1 px-2.5 py-0.5">
+                <span className="size-1.5 rounded-full bg-gold animate-pulse" />
+                Review Required
               </Badge>
             )}
           </div>
@@ -231,7 +262,7 @@ export function ReviewEditor({ initialDoc, currentUserId }: ReviewEditorProps): 
           {/* Precedents Search Dialog (Qdrant) */}
           <Dialog open={isPrecedentDialogOpen} onOpenChange={setIsPrecedentDialogOpen}>
             <DialogTrigger render={<Button variant="outline" size="sm" onClick={handleSearchPrecedents} />}>
-              Search Precedents
+              <Sparkles className="size-3.5 text-brand" /> Search Precedents
             </DialogTrigger>
             <DialogContent className="sm:max-w-xl">
               <DialogHeader>
@@ -242,24 +273,24 @@ export function ReviewEditor({ initialDoc, currentUserId }: ReviewEditorProps): 
               </DialogHeader>
               <div className="space-y-3 py-2 max-h-96 overflow-y-auto">
                 {searchingPrecedents ? (
-                  <p className="text-xs text-muted-foreground animate-pulse p-4 text-center">
+                  <p className="text-xs text-muted-foreground animate-pulse p-4 text-center font-mono">
                     Running cosine similarity search across Lakebase vector index...
                   </p>
                 ) : precedents.length === 0 ? (
-                  <div className="p-4 text-center text-xs text-muted-foreground border border-dashed rounded-lg">
+                  <div className="p-6 text-center text-xs text-muted-foreground border border-dashed rounded-xl">
                     No historical precedents found for this case query.
                   </div>
                 ) : (
                   precedents.map((p) => (
                     <div
                       key={p.id}
-                      className="p-3 rounded-lg border border-border bg-card/70 space-y-2 text-xs"
+                      className="p-3.5 rounded-xl border border-border/80 bg-card space-y-2 text-xs shadow-xs"
                     >
                       <div className="flex items-center justify-between">
-                        <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary">
+                        <Badge variant="gold" className="text-[10px]">
                           {Math.round(p.score * 100)}% Match
                         </Badge>
-                        <code className="text-[10px] text-muted-foreground">{p.id}</code>
+                        <code className="text-[10px] text-muted-foreground font-mono">{p.id}</code>
                       </div>
                       <p className="text-xs text-foreground/90 leading-relaxed font-mono">{p.text}</p>
                       <Button
@@ -283,7 +314,7 @@ export function ReviewEditor({ initialDoc, currentUserId }: ReviewEditorProps): 
           {/* Save Revision Dialog */}
           <Dialog open={isRevisionDialogOpen} onOpenChange={setIsRevisionDialogOpen}>
             <DialogTrigger render={<Button variant="outline" size="sm" />}>
-              Save New Revision
+              <History className="size-3.5" /> Save Revision
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -313,7 +344,7 @@ export function ReviewEditor({ initialDoc, currentUserId }: ReviewEditorProps): 
           {status === "draft" && (
             <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
               <DialogTrigger render={<Button variant="default" size="sm" />}>
-                Approve & Seal Press Note
+                <CheckCircle2 className="size-3.5" /> Approve &amp; Seal
               </DialogTrigger>
               <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
@@ -324,16 +355,16 @@ export function ReviewEditor({ initialDoc, currentUserId }: ReviewEditorProps): 
                 </DialogHeader>
 
                 <div className="space-y-4 py-3">
-                  <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 space-y-2">
-                    <h4 className="text-xs font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider">
+                  <div className="p-4 rounded-xl border border-gold/40 bg-gold/10 space-y-2">
+                    <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
                       Legal Compliance Verification
                     </h4>
-                    <p className="text-xs text-amber-900/80 dark:text-amber-200/80 leading-relaxed">
-                      Presumption of innocence is strictly upheld. No non-adjudicated suspect may be termed a &quot;scamster&quot; or &quot;kingpin&quot;. Casualty numbers must match verified hospital/station records.
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Presumption of innocence is strictly upheld. No non-adjudicated suspect may be termed a &quot;scamster&quot; or &quot;kingpin&quot;. Casualty numbers must match verified station records.
                     </p>
                   </div>
 
-                  <div className="flex items-start gap-3 p-3 rounded-lg border border-border bg-card">
+                  <div className="flex items-start gap-3 p-3.5 rounded-xl border border-border/70 bg-card">
                     <Checkbox
                       id="confirm-verification"
                       checked={confirmedCheckbox}
@@ -363,17 +394,18 @@ export function ReviewEditor({ initialDoc, currentUserId }: ReviewEditorProps): 
 
       {/* Neutrality Alert Banner */}
       {neutralityFlags.length > 0 && (
-        <Alert className="border-rose-500/40 bg-rose-500/10 text-rose-900 dark:text-rose-200">
-          <AlertTitle className="text-sm font-bold flex items-center gap-2">
-            <span>⚠️</span> Neutrality &amp; Guilt Pre-Check Warnings ({neutralityFlags.length} flagged)
+        <Alert variant="destructive">
+          <AlertTriangle className="size-4" />
+          <AlertTitle>
+            Neutrality &amp; Guilt Pre-Check Warnings ({neutralityFlags.length} flagged)
           </AlertTitle>
-          <AlertDescription className="text-xs mt-1 space-y-1">
+          <AlertDescription>
             <p>The draft text contains language that could compromise sovereign legal neutrality:</p>
-            <div className="flex flex-wrap gap-2 pt-1">
+            <div className="flex flex-wrap gap-1.5 pt-1.5">
               {neutralityFlags.map((flag, idx) => (
                 <span
                   key={idx}
-                  className="px-2 py-0.5 rounded text-[11px] font-mono bg-rose-500/20 border border-rose-500/30 font-semibold"
+                  className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-destructive/15 text-destructive font-semibold"
                 >
                   [{flag.rule}] &quot;{flag.match}&quot;
                 </span>
@@ -385,119 +417,233 @@ export function ReviewEditor({ initialDoc, currentUserId }: ReviewEditorProps): 
 
       {/* Main Split-Screen Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Pane: Sources & Evidence (5 columns) */}
+        {/* Left Pane: Sources, Inspector & Upload (5 columns) */}
         <div className="lg:col-span-5 space-y-6">
           <Card>
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-bold">Primary Sources &amp; Evidence</CardTitle>
-                <Badge variant="secondary" className="text-[10px]">
-                  {doc.sources.length} Attached
-                </Badge>
+                <CardTitle>Case Evidence &amp; Sources</CardTitle>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    onClick={() => setLeftTab(leftTab === "upload" ? "sources" : "upload")}
+                    className="gap-1 text-[11px]"
+                  >
+                    <Upload className="size-3" /> {leftTab === "upload" ? "View Sources" : "Upload File"}
+                  </Button>
+                </div>
               </div>
-              <CardDescription className="text-xs">
-                Original FIR records, incident sheets, and officer audio notes stored immutably in Cloudflare R2.
+              <CardDescription>
+                Primary case records, FIR photographs, and voice debriefs stored in Cloudflare R2.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {doc.sources.length === 0 ? (
-                <div className="p-4 rounded-xl border border-dashed border-border text-center space-y-1">
-                  <p className="text-xs text-muted-foreground font-medium">No source attachments uploaded yet.</p>
-                  <p className="text-[11px] text-muted-foreground">Upload FIR PDF or audio note via R2 presigned ticket.</p>
+              {leftTab === "upload" ? (
+                <DirectUploadDropzone
+                  documentId={doc.id}
+                  tenantId={doc.tenantId}
+                  onUploadSuccess={(sourceId, kind) => {
+                    setLeftTab("sources");
+                    setDoc((prev) => ({
+                      ...prev,
+                      sources: [
+                        ...prev.sources,
+                        {
+                          id: sourceId,
+                          documentId: prev.id,
+                          kind,
+                          r2Key: `tenants/${prev.tenantId}/docs/${prev.id}/source.${kind === "audio" ? "mp3" : "pdf"}`,
+                          sha256: null,
+                          metadata: null,
+                          createdAt: new Date(),
+                        },
+                      ],
+                    }));
+                  }}
+                />
+              ) : leftTab === "inspector" ? (
+                <div className="space-y-2">
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    onClick={() => setLeftTab("sources")}
+                    className="text-muted-foreground gap-1"
+                  >
+                    <ArrowLeft className="size-3" /> Back to Sources List
+                  </Button>
+                  <PdfInspector
+                    documentTitle={doc.title}
+                    fileUrl={activeSourceUrl}
+                    activeLocator={activeLocator}
+                    className="h-[460px]"
+                  />
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {doc.sources.map((s) => (
-                    <div key={s.id} className="p-3 rounded-lg border border-border bg-card/60 space-y-2 text-xs">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold uppercase text-primary">{s.kind}</span>
-                          {s.kind === "audio" && (
-                            <Badge variant="outline" className="text-[9px] bg-purple-500/10 text-purple-600 border-purple-500/30">
-                              Sarvam STT (saaras:v4)
-                            </Badge>
-                          )}
-                          {(s.kind === "pdf" || s.kind === "image") && (
-                            <Badge variant="outline" className="text-[9px] bg-sky-500/10 text-sky-600 border-sky-500/30">
-                              Mistral OCR Engine
-                            </Badge>
-                          )}
-                        </div>
-                        <code className="text-[10px] text-muted-foreground">{s.id}</code>
-                      </div>
-                      <p className="text-[11px] font-mono text-muted-foreground truncate">
-                        Key: {s.r2Key ?? "pending-upload"}
-                      </p>
-                      {s.sha256 && (
-                        <p className="text-[10px] font-mono text-muted-foreground truncate">
-                          SHA: {s.sha256}
-                        </p>
-                      )}
-                      {s.kind === "audio" && (
-                        <div className="pt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
-                          <span>🔊 Voice Briefing Attached</span>
-                          <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded">02:14</span>
-                        </div>
-                      )}
+                <div className="space-y-4">
+                  {doc.sources.length === 0 ? (
+                    <div className="p-6 rounded-xl border border-dashed border-border/80 text-center space-y-2">
+                      <p className="text-xs text-muted-foreground font-medium">No source attachments uploaded yet.</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setLeftTab("upload")}
+                        className="gap-1.5 text-xs"
+                      >
+                        <Upload className="size-3.5" /> Upload FIR or Audio
+                      </Button>
                     </div>
-                  ))}
+                  ) : (
+                    <div className="space-y-2">
+                      {doc.sources.map((s) => (
+                        <div key={s.id} className="p-3 rounded-xl border border-border/80 bg-card space-y-2 text-xs shadow-xs">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold uppercase text-foreground">{s.kind}</span>
+                              {s.kind === "audio" && (
+                                <Badge variant="sky" className="text-[9px]">
+                                  Sarvam STT (saaras:v4)
+                                </Badge>
+                              )}
+                              {(s.kind === "pdf" || s.kind === "image") && (
+                                <Badge variant="sage" className="text-[9px]">
+                                  Mistral OCR
+                                </Badge>
+                              )}
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="xs"
+                              onClick={() => {
+                                setLeftTab("inspector");
+                                setActiveLocator(null);
+                              }}
+                              className="text-[10px] h-6"
+                            >
+                              Inspect →
+                            </Button>
+                          </div>
+                          <p className="text-[10px] font-mono text-muted-foreground truncate">
+                            Key: {s.r2Key ?? "pending-upload"}
+                          </p>
+                          {s.kind === "audio" && (
+                            <div className="pt-1 flex items-center justify-between text-xs text-muted-foreground border-t border-border/40">
+                              <span className="flex items-center gap-1.5">
+                                <Volume2 className="size-3.5 text-sky" /> Audio Briefing Track
+                              </span>
+                              <span className="text-[10px] font-mono bg-muted/60 px-2 py-0.5 rounded-full">02:14</span>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <Separator />
+
+                  {/* Extracted Evidence Spans */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Extracted Evidence Locators
+                      </h4>
+                      <span className="text-[10px] text-muted-foreground">Click to inspect</span>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div
+                        onClick={() => {
+                          setActiveLocator("FIR-P1-L3");
+                          setLeftTab("inspector");
+                        }}
+                        className={cn(
+                          "p-2.5 rounded-xl border transition-all cursor-pointer text-xs",
+                          activeLocator === "FIR-P1-L3"
+                            ? "border-brand bg-brand-soft/20 shadow-xs ring-1 ring-brand/30"
+                            : "border-border/70 bg-card hover:border-border",
+                        )}
+                      >
+                        <span className="text-[10px] font-bold text-foreground font-mono block mb-0.5">
+                          [Locator: FIR-P1-L3]
+                        </span>
+                        <span className="text-[11px] text-muted-foreground">
+                          &quot;FIR No. 402/2026 registered at Cyber Crime Police Station under relevant cyber sections.&quot;
+                        </span>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          setActiveLocator("FIR-P1-L12");
+                          setLeftTab("inspector");
+                        }}
+                        className={cn(
+                          "p-2.5 rounded-xl border transition-all cursor-pointer text-xs",
+                          activeLocator === "FIR-P1-L12"
+                            ? "border-brand bg-brand-soft/20 shadow-xs ring-1 ring-brand/30"
+                            : "border-border/70 bg-card hover:border-border",
+                        )}
+                      >
+                        <span className="text-[10px] font-bold text-foreground font-mono block mb-0.5">
+                          [Locator: FIR-P1-L12]
+                        </span>
+                        <span className="text-[11px] text-muted-foreground">
+                          &quot;Three individuals apprehended; electronic devices and transaction logs recovered for investigation.&quot;
+                        </span>
+                      </div>
+
+                      <div
+                        onClick={() => {
+                          setActiveLocator("AUDIO-01:34");
+                          setLeftTab("inspector");
+                        }}
+                        className={cn(
+                          "p-2.5 rounded-xl border transition-all cursor-pointer text-xs",
+                          activeLocator === "AUDIO-01:34"
+                            ? "border-sky bg-sky-soft/20 shadow-xs ring-1 ring-sky/30"
+                            : "border-border/70 bg-card hover:border-border",
+                        )}
+                      >
+                        <span className="text-[10px] font-bold text-sky font-mono block mb-0.5">
+                          [Locator: AUDIO-01:34]
+                        </span>
+                        <span className="text-[11px] text-muted-foreground">
+                          &quot;Casualty details: No physical injuries sustained during apprehension.&quot;
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
-
-              <Separator />
-
-              {/* Source Text / Citation Locator View */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Extracted Evidence Spans
-                </h4>
-                <div className="p-3 rounded-lg bg-muted/40 border border-border/60 text-xs space-y-2 font-mono">
-                  <div className="p-2 rounded bg-card border border-border/80">
-                    <span className="text-[10px] font-bold text-primary block">[Locator: FIR-P1-L3]</span>
-                    <span className="text-[11px] text-foreground">
-                      &quot;FIR No. 402/2026 registered at Cyber Crime Police Station under relevant cyber sections.&quot;
-                    </span>
-                  </div>
-                  <div className="p-2 rounded bg-card border border-border/80">
-                    <span className="text-[10px] font-bold text-primary block">[Locator: FIR-P1-L12]</span>
-                    <span className="text-[11px] text-foreground">
-                      &quot;Three individuals apprehended; electronic devices and transaction logs recovered for investigation.&quot;
-                    </span>
-                  </div>
-                  <div className="p-2 rounded bg-card border border-border/80">
-                    <span className="text-[10px] font-bold text-amber-600 block">[Locator: AUDIO-01:34]</span>
-                    <span className="text-[11px] text-foreground">
-                      &quot;Casualty details: No physical injuries sustained during apprehension.&quot;
-                    </span>
-                  </div>
-                </div>
-              </div>
             </CardContent>
           </Card>
 
           {/* Audit Trail & Revisions */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-bold">Revision &amp; Audit Trail</CardTitle>
-              <CardDescription className="text-xs">
-                Every modification is recorded with author identity and timestamp.
+              <CardTitle>Revision Audit Trail</CardTitle>
+              <CardDescription>
+                Immutable record of every edit, author identity, and approval stamp.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {doc.revisions.map((rev) => (
-                  <div key={rev.id} className="p-3 rounded-lg border border-border/70 bg-card/40 space-y-1 text-xs">
+                  <div key={rev.id} className="p-3 rounded-xl border border-border/70 bg-card space-y-1 text-xs shadow-xs">
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold">Revision #{rev.revisionNumber}</span>
+                      <span className="font-semibold text-foreground">Revision #{rev.revisionNumber}</span>
                       {rev.approved ? (
-                        <span className="text-[10px] text-emerald-600 font-semibold">Approved</span>
+                        <Badge variant="sage" className="text-[9px]">
+                          Approved
+                        </Badge>
                       ) : (
-                        <span className="text-[10px] text-muted-foreground">Unapproved</span>
+                        <Badge variant="outline" className="text-[9px]">
+                          Unapproved
+                        </Badge>
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground">{rev.reason}</p>
-                    <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1">
-                      <span>Author: <code className="font-mono">{rev.authorId}</code></span>
+                    <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t border-border/40 font-mono">
+                      <span>Author: {rev.authorId}</span>
                       <span>{new Date(rev.createdAt).toLocaleTimeString()}</span>
                     </div>
                   </div>
@@ -507,210 +653,229 @@ export function ReviewEditor({ initialDoc, currentUserId }: ReviewEditorProps): 
           </Card>
         </div>
 
-        {/* Right Pane: Fact Matrix & Press Draft (7 columns) */}
+        {/* Right Pane: Drafting Workspace & Tabs (7 columns) */}
         <div className="lg:col-span-7 space-y-6">
-          {/* Fact Matrix */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-bold">Structured Fact Engine Matrix</CardTitle>
-              <CardDescription className="text-xs">
-                Deterministic fact breakdown: claims backed by citations vs unstated assertions.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                <div className="p-2.5 rounded-lg border border-border bg-card space-y-1">
-                  <span className="text-[10px] text-muted-foreground font-semibold uppercase">Event</span>
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">Cyber Fraud Scheme</span>
-                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 text-[10px]">
-                      Confirmed
-                    </Badge>
-                  </div>
-                </div>
+          <Tabs defaultValue="draft">
+            <div className="flex items-center justify-between mb-3">
+              <TabsList>
+                <TabsTrigger value="draft">
+                  <FileText className="size-3.5 mr-1" /> Primary Draft (English)
+                </TabsTrigger>
+                <TabsTrigger value="secondary">
+                  <Languages className="size-3.5 mr-1" /> Dual-Language (Hindi)
+                </TabsTrigger>
+                <TabsTrigger value="facts">
+                  <Scale className="size-3.5 mr-1" /> Fact Matrix
+                </TabsTrigger>
+              </TabsList>
 
-                <div className="p-2.5 rounded-lg border border-border bg-card space-y-1">
-                  <span className="text-[10px] text-muted-foreground font-semibold uppercase">Location</span>
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">Jaipur, Rajasthan</span>
-                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 text-[10px]">
-                      Confirmed
-                    </Badge>
-                  </div>
-                </div>
+              <Badge variant="outline" className="text-[0.65rem] font-mono hidden sm:inline-flex">
+                Inverted Pyramid Standard
+              </Badge>
+            </div>
 
-                <div className="p-2.5 rounded-lg border border-border bg-card space-y-1">
-                  <span className="text-[10px] text-muted-foreground font-semibold uppercase">Accused</span>
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">3 Individuals (Names Withheld)</span>
-                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 text-[10px]">
-                      Confirmed
-                    </Badge>
-                  </div>
-                </div>
-
-                <div className="p-2.5 rounded-lg border border-border bg-card space-y-1">
-                  <span className="text-[10px] text-muted-foreground font-semibold uppercase">Casualties (Injured / Dead)</span>
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">Zero Reported</span>
-                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 text-[10px]">
-                      Confirmed
-                    </Badge>
-                  </div>
-                </div>
-
-                <div className="p-2.5 rounded-lg border border-border bg-card space-y-1">
-                  <span className="text-[10px] text-muted-foreground font-semibold uppercase">Financial Loss</span>
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">Subject to Audit</span>
-                    <Badge variant="outline" className="bg-zinc-500/10 text-zinc-500 text-[10px]">
-                      Not Stated
-                    </Badge>
-                  </div>
-                </div>
-
-                <div className="p-2.5 rounded-lg border border-border bg-card space-y-1">
-                  <span className="text-[10px] text-muted-foreground font-semibold uppercase">Action Taken</span>
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">Custody &amp; Forensic Seizure</span>
-                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 text-[10px]">
-                      Confirmed
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Press Note Draft Editor */}
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-base font-bold">Press Note Draft &amp; Dual-Language Bundle</CardTitle>
-                  <CardDescription className="text-xs">
-                    Fixed bundle format (3 headlines &le;15 words, summary, and inverted pyramid details).
+            {/* Tab 1: Primary English Draft */}
+            <TabsContent value="draft" className="space-y-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle>Headline Candidates (Strictly &le; 15 words)</CardTitle>
+                  <CardDescription>
+                    Deterministic options generated for press releases and wire distribution.
                   </CardDescription>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                  <span className="text-[11px] text-muted-foreground font-medium">Live Inverted Pyramid</span>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* English Headlines Triple */}
-              <div className="space-y-3">
-                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Headline Candidates (Strictly &le; 15 words)
-                </label>
-
-                {/* Headline 1 */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Option 1: Primary Event Lead</span>
-                    <span className={h1Words > HEADLINE_MAX_WORDS ? "text-rose-500 font-bold" : "text-muted-foreground"}>
-                      {h1Words} / {HEADLINE_MAX_WORDS} words
-                    </span>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {/* Headline 1 */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">Option 1: Primary Event Lead</span>
+                      <span className={h1Words > HEADLINE_MAX_WORDS ? "text-destructive font-bold font-mono" : "text-muted-foreground font-mono text-[11px]"}>
+                        {h1Words} / {HEADLINE_MAX_WORDS} words
+                      </span>
+                    </div>
+                    <Input
+                      value={headline1}
+                      onChange={(e) => setHeadline1(e.target.value)}
+                      className="font-medium"
+                    />
                   </div>
-                  <Input
-                    value={headline1}
-                    onChange={(e) => setHeadline1(e.target.value)}
-                    className="text-xs font-medium"
-                  />
-                </div>
 
-                {/* Headline 2 */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Option 2: Action Taken</span>
-                    <span className={h2Words > HEADLINE_MAX_WORDS ? "text-rose-500 font-bold" : "text-muted-foreground"}>
-                      {h2Words} / {HEADLINE_MAX_WORDS} words
-                    </span>
+                  {/* Headline 2 */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">Option 2: Action Taken</span>
+                      <span className={h2Words > HEADLINE_MAX_WORDS ? "text-destructive font-bold font-mono" : "text-muted-foreground font-mono text-[11px]"}>
+                        {h2Words} / {HEADLINE_MAX_WORDS} words
+                      </span>
+                    </div>
+                    <Input
+                      value={headline2}
+                      onChange={(e) => setHeadline2(e.target.value)}
+                      className="font-medium"
+                    />
                   </div>
-                  <Input
-                    value={headline2}
-                    onChange={(e) => setHeadline2(e.target.value)}
-                    className="text-xs font-medium"
-                  />
-                </div>
 
-                {/* Headline 3 */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Option 3: Official Notice</span>
-                    <span className={h3Words > HEADLINE_MAX_WORDS ? "text-rose-500 font-bold" : "text-muted-foreground"}>
-                      {h3Words} / {HEADLINE_MAX_WORDS} words
-                    </span>
+                  {/* Headline 3 */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">Option 3: Official Notice</span>
+                      <span className={h3Words > HEADLINE_MAX_WORDS ? "text-destructive font-bold font-mono" : "text-muted-foreground font-mono text-[11px]"}>
+                        {h3Words} / {HEADLINE_MAX_WORDS} words
+                      </span>
+                    </div>
+                    <Input
+                      value={headline3}
+                      onChange={(e) => setHeadline3(e.target.value)}
+                      className="font-medium"
+                    />
                   </div>
-                  <Input
-                    value={headline3}
-                    onChange={(e) => setHeadline3(e.target.value)}
-                    className="text-xs font-medium"
-                  />
-                </div>
-              </div>
+                </CardContent>
+              </Card>
 
-              <Separator />
-
-              {/* Summary */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Brief Press Summary (English)
-                </label>
-                <Textarea
-                  value={summary}
-                  onChange={(e) => setSummary(e.target.value)}
-                  rows={3}
-                  className="text-xs leading-relaxed"
-                />
-              </div>
-
-              {/* Details (Inverted Pyramid) */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Inverted-Pyramid Detailed Narrative (English)
-                </label>
-                <Textarea
-                  value={detail}
-                  onChange={(e) => setDetail(e.target.value)}
-                  rows={4}
-                  className="text-xs leading-relaxed"
-                />
-              </div>
-
-              <Separator />
-
-              {/* Secondary Language Bundle (Hindi Seam) */}
-              <div className="p-4 rounded-xl border border-border/80 bg-muted/30 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm">🇮🇳</span>
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">
-                      Secondary Locale Bundle (Hindi Seam)
-                    </h4>
-                  </div>
-                  <span className="text-[11px] text-muted-foreground">Runtime Locale Pack</span>
-                </div>
-
-                <div className="space-y-2">
-                  <Input
-                    value={secondaryHeadline}
-                    onChange={(e) => setSecondaryHeadline(e.target.value)}
-                    className="text-xs font-medium"
-                  />
+              {/* Summary & Inverted Pyramid */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle>Brief Press Summary (English)</CardTitle>
+                  <CardDescription>
+                    Executive summary of confirmed findings for immediate wire distribution.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
                   <Textarea
-                    value={secondarySummary}
-                    onChange={(e) => setSecondarySummary(e.target.value)}
-                    rows={2}
-                    className="text-xs leading-relaxed"
+                    value={summary}
+                    onChange={(e) => setSummary(e.target.value)}
+                    rows={3}
+                    className="leading-relaxed"
                   />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+
+                  <div className="space-y-1.5 pt-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        Inverted-Pyramid Detailed Narrative
+                      </label>
+                      <span className="text-[11px] font-mono text-muted-foreground">
+                        {countWords(detail)} words
+                      </span>
+                    </div>
+                    <Textarea
+                      value={detail}
+                      onChange={(e) => setDetail(e.target.value)}
+                      rows={5}
+                      className="leading-relaxed font-sans"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Tab 2: Dual-Language Preview (Hindi) */}
+            <TabsContent value="secondary" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Languages className="size-4 text-sky" />
+                      <CardTitle>Secondary Locale Translation (Hindi Seam)</CardTitle>
+                    </div>
+                    <Badge variant="outline" className="text-xs font-mono">
+                      Runtime Locale Pack
+                    </Badge>
+                  </div>
+                  <CardDescription>
+                    Dual-language translation generated through the runtime phrase seam — zero non-English literals hardcoded.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground">
+                      Secondary Headline
+                    </label>
+                    <Input
+                      value={secondaryHeadline}
+                      onChange={(e) => setSecondaryHeadline(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground">
+                      Secondary Detailed Brief
+                    </label>
+                    <Textarea
+                      value={secondarySummary}
+                      onChange={(e) => setSecondarySummary(e.target.value)}
+                      rows={4}
+                      className="leading-relaxed"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Tab 3: Fact Matrix */}
+            <TabsContent value="facts" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Deterministic Fact Breakdown</CardTitle>
+                  <CardDescription>
+                    Cross-referenced evidence assertions with Laya Studio confidence scoring.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div className="p-3 rounded-xl border border-border/80 bg-card space-y-1 shadow-xs">
+                      <span className="text-[10px] text-muted-foreground font-semibold uppercase">Event</span>
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-foreground">Cyber Fraud Scheme</span>
+                        <Badge variant="sage" className="text-[10px]">Confirmed</Badge>
+                      </div>
+                    </div>
+
+                    <div className="p-3 rounded-xl border border-border/80 bg-card space-y-1 shadow-xs">
+                      <span className="text-[10px] text-muted-foreground font-semibold uppercase">Location</span>
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-foreground">Jaipur, Rajasthan</span>
+                        <Badge variant="sage" className="text-[10px]">Confirmed</Badge>
+                      </div>
+                    </div>
+
+                    <div className="p-3 rounded-xl border border-border/80 bg-card space-y-1 shadow-xs">
+                      <span className="text-[10px] text-muted-foreground font-semibold uppercase">Accused</span>
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-foreground">3 Individuals (Names Withheld)</span>
+                        <Badge variant="sage" className="text-[10px]">Confirmed</Badge>
+                      </div>
+                    </div>
+
+                    <div className="p-3 rounded-xl border border-border/80 bg-card space-y-1 shadow-xs">
+                      <span className="text-[10px] text-muted-foreground font-semibold uppercase">Casualties</span>
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-foreground">Zero Reported</span>
+                        <Badge variant="sage" className="text-[10px]">Confirmed</Badge>
+                      </div>
+                    </div>
+
+                    <div className="p-3 rounded-xl border border-border/80 bg-card space-y-1 shadow-xs">
+                      <span className="text-[10px] text-muted-foreground font-semibold uppercase">Financial Loss</span>
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-foreground">Subject to Audit</span>
+                        <Badge variant="outline" className="text-[10px]">Not Stated</Badge>
+                      </div>
+                    </div>
+
+                    <div className="p-3 rounded-xl border border-border/80 bg-card space-y-1 shadow-xs">
+                      <span className="text-[10px] text-muted-foreground font-semibold uppercase">Action Taken</span>
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-foreground">Custody &amp; Forensic Seizure</span>
+                        <Badge variant="sage" className="text-[10px]">Confirmed</Badge>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </div>
   );
 }
+

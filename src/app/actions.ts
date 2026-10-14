@@ -263,3 +263,112 @@ export async function searchPrecedentsAction(input: {
     };
   }
 }
+
+export async function mintUploadTicketAction(input: {
+  tenantId: string;
+  documentId: string;
+  extension: string;
+  contentType: string;
+  contentLengthBytes: number;
+}): Promise<ActionResult<{ uploadUrl: string; key: string; expiresAt: string }>> {
+  const { userId, isAuthenticated } = await auth();
+  if (!isAuthenticated || !userId) {
+    return { success: false, error: "Authentication required to upload files." };
+  }
+
+  try {
+    const store = getStore();
+    const membership = await store.getMembership({ userId, tenantId: input.tenantId });
+    if (!membership) {
+      return { success: false, error: "User is not a member of this tenant department." };
+    }
+
+    const { getR2 } = await import("@/server/context");
+    const r2 = getR2();
+    if (!r2) {
+      return { success: false, error: "Storage module not configured." };
+    }
+
+    const { tenantId: tIdValidator, documentId: dIdValidator } = await import("@/lib/r2/r2");
+    const tId = tIdValidator(input.tenantId);
+    const dId = dIdValidator(input.documentId);
+    if (!isOk(tId) || !isOk(dId)) {
+      return { success: false, error: "Invalid tenant or document id." };
+    }
+
+    const grant = await r2.createUploadGrant({
+      tenant: tId.value,
+      document: dId.value,
+      extension: input.extension,
+      contentType: input.contentType,
+      contentLengthBytes: input.contentLengthBytes,
+    });
+
+    if (!isOk(grant)) {
+      const msg = grant.error.kind === "invalid-input" ? grant.error.issues.join(", ") : "Failed to mint upload grant";
+      return { success: false, error: msg };
+    }
+
+    return {
+      success: true,
+      data: {
+        uploadUrl: grant.value.uploadUrl,
+        key: grant.value.key,
+        expiresAt: grant.value.expiresAt.toISOString(),
+      },
+    };
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : "Failed to mint upload ticket" };
+  }
+}
+
+export async function completeUploadAction(input: {
+  tenantId: string;
+  documentId: string;
+  key: string;
+  kind: "form" | "pdf" | "image" | "audio";
+  sha256?: string;
+}): Promise<ActionResult<{ sourceId: string }>> {
+  const { userId, isAuthenticated } = await auth();
+  if (!isAuthenticated || !userId) {
+    return { success: false, error: "Authentication required to complete upload." };
+  }
+
+  try {
+    const store = getStore();
+    const membership = await store.getMembership({ userId, tenantId: input.tenantId });
+    if (!membership) {
+      return { success: false, error: "User is not a member of this tenant department." };
+    }
+
+    const source = await store.addSource({
+      documentId: input.documentId,
+      kind: input.kind,
+      r2Key: input.key,
+      sha256: input.sha256,
+    });
+
+    // Notify Inngest durable event bus
+    try {
+      const { inngest } = await import("@/inngest/client");
+      await inngest.send({
+        name: "upload/complete",
+        data: {
+          documentId: input.documentId,
+          tenantId: input.tenantId,
+          sourceId: source.id,
+          kind: input.kind,
+          r2Key: input.key,
+        },
+      });
+    } catch (inngestErr) {
+      console.error("Inngest event dispatch note:", inngestErr);
+    }
+
+    revalidatePath(`/dossiers/${input.documentId}`);
+    return { success: true, data: { sourceId: source.id } };
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : "Failed to complete upload" };
+  }
+}
+

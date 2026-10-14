@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
+import { ArrowRight, FileText, ShieldCheck, Scale, Languages, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 export default async function HomePage(): Promise<React.JSX.Element> {
   const { isAuthenticated, userId } = await auth();
@@ -14,122 +18,132 @@ export default async function HomePage(): Promise<React.JSX.Element> {
   const officerEmail = user?.emailAddresses[0]?.emailAddress ?? "N/A";
 
   return (
-    <div className="flex-1 flex flex-col bg-background text-foreground">
-      {/* Hero / Header Section */}
-      <section className="relative border-b border-border/40 bg-radial from-primary/[0.04] to-transparent py-16 sm:py-24">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary mb-6 border border-primary/20">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            Clerk Authentication Active • Samvaad AI Sovereign System
+    <div className="flex-1 flex flex-col">
+      {/* Hero Section */}
+      <section className="relative border-b border-border/70 py-16 sm:py-24 overflow-hidden">
+        <div className="max-w-5xl mx-auto px-6 relative z-10">
+          <div className="flex flex-wrap items-center gap-2 mb-6">
+            <Badge variant="gold" className="px-3 py-1 text-xs">
+              <span className="size-1.5 rounded-full bg-gold animate-pulse mr-1" />
+              Sovereign Police AI System
+            </Badge>
+            <Badge variant="outline" className="text-xs">
+              IEEE-IGNITE SKIT005
+            </Badge>
           </div>
 
           {!isAuthenticated ? (
             <div className="max-w-3xl space-y-6">
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-foreground leading-[1.1]">
+              <h1 className="font-story text-4xl sm:text-6xl lg:text-7xl font-semibold tracking-tight text-foreground leading-[1.08]">
                 Turn raw case evidence into{" "}
-                <span className="text-primary underline decoration-primary/40 underline-offset-8">
+                <span className="italic font-normal underline decoration-brand decoration-wavy underline-offset-8">
                   verified, neutral
                 </span>{" "}
                 press notes.
               </h1>
-              <p className="text-lg sm:text-xl text-muted-foreground leading-relaxed">
-                Samvaad AI equips government and police press officers to extract facts from FIR PDFs,
-                audio briefings, and incident logs into dual-language drafts (English & Hindi) —
-                guaranteeing zero premature declarations of guilt with complete human editorial control.
+              <p className="text-base sm:text-lg text-muted-foreground leading-relaxed max-w-2xl">
+                Equip police officers and administrative spokespersons to distill FIR scans,
+                voice debriefs, and evidence files into dual-language drafts — guaranteeing
+                zero premature guilt declarations with complete editorial sign-off.
               </p>
 
-              <div className="flex flex-wrap items-center gap-4 pt-4">
+              <div className="flex flex-wrap items-center gap-3 pt-4">
                 <SignInButton mode="modal">
-                  <button className="px-6 py-3 rounded-lg bg-primary text-primary-foreground font-medium text-base hover:bg-primary/90 transition-all shadow-md hover:shadow-lg cursor-pointer">
-                    Sign In to Officer Portal
-                  </button>
+                  <Button size="lg" className="gap-2 shadow-panel">
+                    Sign In to Officer Portal <ArrowRight className="size-4" />
+                  </Button>
                 </SignInButton>
                 <SignUpButton mode="modal">
-                  <button className="px-6 py-3 rounded-lg border border-border bg-card text-foreground font-medium text-base hover:bg-accent transition-all cursor-pointer">
+                  <Button variant="outline" size="lg">
                     Create Officer Account
-                  </button>
+                  </Button>
                 </SignUpButton>
               </div>
             </div>
           ) : (
-            <div className="max-w-4xl space-y-6">
-              <div className="flex flex-wrap items-center justify-between gap-4 p-6 rounded-2xl bg-card border border-border shadow-xs">
+            <div className="max-w-4xl space-y-8">
+              <div className="flex flex-wrap items-center justify-between gap-6 p-6 rounded-2xl bg-card ring-1 ring-foreground/10 shadow-soft">
                 <div className="flex items-center gap-4">
                   <UserButton
                     appearance={{
                       elements: {
-                        avatarBox: "w-14 h-14 ring-2 ring-primary/20",
+                        avatarBox: "w-14 h-14 rounded-full ring-2 ring-primary/30",
                       },
                     }}
                   />
                   <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-2xl font-bold tracking-tight">
+                    <div className="flex items-center gap-2.5">
+                      <h2 className="font-story text-2xl sm:text-3xl font-semibold tracking-tight">
                         Welcome back, {officerName}
                       </h2>
-                      <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                      <Badge variant="sage" className="text-[0.7rem]">
                         Authorized Officer
-                      </span>
+                      </Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-0.5">
-                      {officerEmail} • User ID: <code className="font-mono text-xs">{userId}</code>
+                    <p className="text-xs text-muted-foreground font-mono mt-1">
+                      {officerEmail} • ID: {userId}
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-muted text-muted-foreground">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                    Session Verified by Clerk
-                  </span>
-                </div>
+                <Link href="/dossiers">
+                  <Button size="lg" className="gap-2">
+                    Open Case Dossiers <ArrowRight className="size-4" />
+                  </Button>
+                </Link>
               </div>
 
-              {/* Officer Quick Actions */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-                <Link
-                  href="/dossiers"
-                  className="p-5 rounded-xl border border-border bg-card/60 hover:bg-card hover:border-primary/40 transition-all space-y-2 block group"
-                >
-                  <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-sm group-hover:scale-105 transition-transform">
-                    01
-                  </div>
-                  <h3 className="font-semibold text-base group-hover:text-primary transition-colors">
-                    New Press Dossier →
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Scaffold a new case dossier with strict tenant isolation and source tracking.
-                  </p>
+              {/* Three-step officer workflow */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Link href="/dossiers" className="group block">
+                  <Card className="h-full hover:ring-foreground/20 hover:shadow-panel transition-all">
+                    <CardHeader>
+                      <Badge variant="outline" className="w-fit text-[0.65rem] font-mono">
+                        STEP 01
+                      </Badge>
+                      <CardTitle className="group-hover:text-foreground/90 flex items-center justify-between">
+                        Scaffold Dossier
+                        <ArrowRight className="size-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </CardTitle>
+                      <CardDescription>
+                        Create an auditable case container with strict tenant isolation.
+                      </CardDescription>
+                    </CardHeader>
+                  </Card>
                 </Link>
 
-                <Link
-                  href="/dossiers"
-                  className="p-5 rounded-xl border border-border bg-card/60 hover:bg-card hover:border-primary/40 transition-all space-y-2 block group"
-                >
-                  <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-sm group-hover:scale-105 transition-transform">
-                    02
-                  </div>
-                  <h3 className="font-semibold text-base group-hover:text-primary transition-colors">
-                    Upload FIR &amp; Audio →
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Direct-to-R2 presigned upload for PDFs, voice recordings, and incident images.
-                  </p>
+                <Link href="/dossiers" className="group block">
+                  <Card className="h-full hover:ring-foreground/20 hover:shadow-panel transition-all">
+                    <CardHeader>
+                      <Badge variant="outline" className="w-fit text-[0.65rem] font-mono">
+                        STEP 02
+                      </Badge>
+                      <CardTitle className="group-hover:text-foreground/90 flex items-center justify-between">
+                        Upload Evidence
+                        <ArrowRight className="size-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </CardTitle>
+                      <CardDescription>
+                        Direct R2 presigned upload for FIR photos and Sarvam STT voice notes.
+                      </CardDescription>
+                    </CardHeader>
+                  </Card>
                 </Link>
 
-                <Link
-                  href="/dossiers"
-                  className="p-5 rounded-xl border border-border bg-card/60 hover:bg-card hover:border-primary/40 transition-all space-y-2 block group"
-                >
-                  <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-sm group-hover:scale-105 transition-transform">
-                    03
-                  </div>
-                  <h3 className="font-semibold text-base group-hover:text-primary transition-colors">
-                    Review &amp; Sign Off →
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Laya fact verification check, dual-language summary preview, and final publish approval.
-                  </p>
+                <Link href="/dossiers" className="group block">
+                  <Card className="h-full hover:ring-foreground/20 hover:shadow-panel transition-all">
+                    <CardHeader>
+                      <Badge variant="outline" className="w-fit text-[0.65rem] font-mono">
+                        STEP 03
+                      </Badge>
+                      <CardTitle className="group-hover:text-foreground/90 flex items-center justify-between">
+                        Review &amp; Approve
+                        <ArrowRight className="size-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </CardTitle>
+                      <CardDescription>
+                        Laya fact verification, Qdrant precedent phrasing, and digital signing.
+                      </CardDescription>
+                    </CardHeader>
+                  </Card>
                 </Link>
               </div>
             </div>
@@ -137,88 +151,109 @@ export default async function HomePage(): Promise<React.JSX.Element> {
         </div>
       </section>
 
-      {/* System Features & Architectural Integrity */}
-      <section className="py-16 max-w-6xl mx-auto px-6 w-full space-y-12">
-        <div className="space-y-3">
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
-            Sovereign Architecture Principles
+      {/* Sovereign Architecture Pillars */}
+      <section className="py-16 max-w-5xl mx-auto px-6 w-full space-y-10">
+        <div className="space-y-2">
+          <Badge variant="outline" className="text-xs uppercase font-mono">
+            Core Principles
+          </Badge>
+          <h2 className="font-story text-3xl sm:text-4xl font-semibold tracking-tight">
+            Designed for Sovereign Accountability
           </h2>
-          <p className="text-sm sm:text-base text-muted-foreground max-w-2xl">
-            Built for the IEEE-IGNITE SKIT005 problem statement: strictly auditable, legally compliant,
-            and built on sovereign deep modules.
+          <p className="text-sm text-muted-foreground max-w-xl">
+            Every sentence points to its evidence source. Zero unsupervised generative hallucinations.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="p-6 rounded-xl border border-border bg-card space-y-3 shadow-xs">
-            <div className="w-10 h-10 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold text-lg">
-              ⚖️
-            </div>
-            <h3 className="font-semibold text-lg">Zero Guilt Declaration</h3>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Scans for accusatory language before conviction. Enforces &quot;alleged&quot; and factual attribution to uphold legal integrity.
-            </p>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <Card className="shadow-xs">
+            <CardHeader>
+              <div className="flex items-center gap-3 mb-1">
+                <span className="p-2 rounded-lg bg-coral-soft text-coral">
+                  <Scale className="size-5" />
+                </span>
+                <CardTitle>Zero Guilt Declaration</CardTitle>
+              </div>
+              <CardDescription>
+                Neutrality scanner flags accusatory words before judicial conviction. Enforces &quot;alleged&quot; and factual attribution under legal standards.
+              </CardDescription>
+            </CardHeader>
+          </Card>
 
-          <div className="p-6 rounded-xl border border-border bg-card space-y-3 shadow-xs">
-            <div className="w-10 h-10 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-lg">
-              🇮🇳
-            </div>
-            <h3 className="font-semibold text-lg">Dual-Language Bundles</h3>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Automatically generates 3 headline candidates (&le;15 words each), an inverted pyramid brief, and full summaries in English &amp; Hindi.
-            </p>
-          </div>
+          <Card className="shadow-xs">
+            <CardHeader>
+              <div className="flex items-center gap-3 mb-1">
+                <span className="p-2 rounded-lg bg-sky-soft text-sky">
+                  <Languages className="size-5" />
+                </span>
+                <CardTitle>Dual-Language Generation</CardTitle>
+              </div>
+              <CardDescription>
+                Outputs 3 concise headline options (&le;15 words each), an inverted pyramid brief, and verified summaries in both English and Hindi.
+              </CardDescription>
+            </CardHeader>
+          </Card>
 
-          <div className="p-6 rounded-xl border border-border bg-card space-y-3 shadow-xs">
-            <div className="w-10 h-10 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-lg">
-              🔍
-            </div>
-            <h3 className="font-semibold text-lg">Source Traceability</h3>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Every factual assertion links directly to its source paragraph, timestamped audio transcript, or official FIR record.
-            </p>
-          </div>
+          <Card className="shadow-xs">
+            <CardHeader>
+              <div className="flex items-center gap-3 mb-1">
+                <span className="p-2 rounded-lg bg-gold/15 text-gold">
+                  <FileText className="size-5" />
+                </span>
+                <CardTitle>End-to-End Source Traceability</CardTitle>
+              </div>
+              <CardDescription>
+                Every factual claim is pinned to exact FIR pages (Mistral OCR) or timestamped audio segments (Sarvam STT) for instant visual cross-referencing.
+              </CardDescription>
+            </CardHeader>
+          </Card>
 
-          <div className="p-6 rounded-xl border border-border bg-card space-y-3 shadow-xs">
-            <div className="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-lg">
-              🛡️
-            </div>
-            <h3 className="font-semibold text-lg">Human-in-the-Loop</h3>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              No press note is ever published automatically. An authenticated officer must edit, verify, and digitally approve every draft.
-            </p>
-          </div>
+          <Card className="shadow-xs">
+            <CardHeader>
+              <div className="flex items-center gap-3 mb-1">
+                <span className="p-2 rounded-lg bg-sage-soft text-sage">
+                  <ShieldCheck className="size-5" />
+                </span>
+                <CardTitle>Strict Human-in-the-Loop Gating</CardTitle>
+              </div>
+              <CardDescription>
+                Automated publishing is architecturally impossible. Trigger.dev waitpoints require authenticated officer checklist confirmation before release.
+              </CardDescription>
+            </CardHeader>
+          </Card>
         </div>
 
-        {/* Integration Status Badges */}
-        <div className="p-6 rounded-xl border border-border/80 bg-muted/40 space-y-4">
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Core Infrastructure Status
-          </h4>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-              <span>
-                <strong>Clerk Auth:</strong> Connected
+        {/* Engine Pipeline Status */}
+        <div className="p-5 rounded-2xl bg-card ring-1 ring-foreground/10 shadow-soft">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-xs font-mono font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+              <Sparkles className="size-3.5 text-brand" /> Engine Status Ledger
+            </span>
+            <span className="text-[0.65rem] font-mono text-muted-foreground">All Deep Modules Active</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+            <div className="space-y-0.5">
+              <span className="text-muted-foreground block">Authentication</span>
+              <span className="font-semibold text-foreground flex items-center gap-1.5">
+                <span className="size-1.5 rounded-full bg-emerald-500" /> Clerk RBAC
               </span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-              <span>
-                <strong>Neon DB:</strong> Postgres 16
+            <div className="space-y-0.5">
+              <span className="text-muted-foreground block">Document OCR</span>
+              <span className="font-semibold text-foreground flex items-center gap-1.5">
+                <span className="size-1.5 rounded-full bg-emerald-500" /> Mistral Vision
               </span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-              <span>
-                <strong>Cloudflare R2:</strong> S3 Compatible
+            <div className="space-y-0.5">
+              <span className="text-muted-foreground block">Audio Briefing</span>
+              <span className="font-semibold text-foreground flex items-center gap-1.5">
+                <span className="size-1.5 rounded-full bg-emerald-500" /> Sarvam Saaras
               </span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-              <span>
-                <strong>tRPC 11:</strong> Protected Procedures
+            <div className="space-y-0.5">
+              <span className="text-muted-foreground block">Vector Retrieval</span>
+              <span className="font-semibold text-foreground flex items-center gap-1.5">
+                <span className="size-1.5 rounded-full bg-emerald-500" /> Qdrant Semantic
               </span>
             </div>
           </div>
@@ -227,3 +262,4 @@ export default async function HomePage(): Promise<React.JSX.Element> {
     </div>
   );
 }
+

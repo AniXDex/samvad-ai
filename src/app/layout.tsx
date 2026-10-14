@@ -2,34 +2,53 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ClerkProvider, SignInButton, SignUpButton, Show, UserButton } from "@clerk/nextjs";
 import { shadcn } from "@clerk/ui/themes";
-import { Geist, Geist_Mono, Figtree } from "next/font/google";
+import { IBM_Plex_Mono, Manrope, Newsreader } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 
-const figtree = Figtree({ subsets: ["latin"], variable: "--font-sans" });
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const sans = Manrope({
   subsets: ["latin"],
+  variable: "--font-loreline-sans",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const story = Newsreader({
   subsets: ["latin"],
+  weight: ["500", "600"],
+  style: ["normal", "italic"],
+  variable: "--font-loreline-story",
+});
+
+const mono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-mono",
 });
 
 export const metadata: Metadata = {
   title: "Samvaad AI — Sovereign Press Briefing Assistant",
-  description: "AI-based press note generation and official communication assistant for government and police departments.",
+  description: "AI-based press note generation, OCR/STT fact extraction, and official briefing assistant for police departments and government officers.",
+  applicationName: "Samvaad AI",
 };
 
-/**
- * ClerkProvider reads the session cookie at request time, which Cache
- * Components cannot prerender into the static shell. Per the Next 16
- * "Authentication with Cache Components" guide, opt the whole tree into
- * blocking render; adopt Suspense + `use cache: private` per route later.
- */
 export const instant = false;
+
+function BrandMark({ className }: { className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "relative inline-grid size-8 place-items-center rounded-[0.7rem] bg-foreground text-background shadow-xs",
+        className,
+      )}
+    >
+      <span className="font-story -translate-y-px text-[1.45rem] font-semibold italic leading-none">
+        S
+      </span>
+      <span className="absolute bottom-[0.38rem] left-[0.42rem] h-[1.5px] w-[0.85rem] bg-brand" />
+      <span className="absolute bottom-[0.28rem] right-[0.38rem] size-1 rounded-full bg-sky" />
+    </span>
+  );
+}
 
 export default function RootLayout({
   children,
@@ -39,35 +58,60 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={cn("h-full", "antialiased", geistSans.variable, geistMono.variable, "font-sans", figtree.variable)}
+      suppressHydrationWarning
+      data-scroll-behavior="smooth"
+      className={cn(
+        sans.variable,
+        story.variable,
+        mono.variable,
+        "h-full antialiased font-sans",
+      )}
     >
-      <body className="min-h-full flex flex-col bg-background text-foreground">
+      <body suppressHydrationWarning className="min-h-full flex flex-col bg-background text-foreground dot-grid">
         <ClerkProvider appearance={{ theme: shadcn }}>
-          <header className="border-b border-border/50 bg-background/80 backdrop-blur-md sticky top-0 z-50">
+          <header className="border-b border-border/70 bg-card/85 backdrop-blur-md sticky top-0 z-50">
             <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-3.5">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm tracking-wider">
-                  SA
-                </div>
-                <div>
-                  <Link href="/" className="font-semibold text-base tracking-tight hover:opacity-90">
-                    Samvaad AI
+              <div className="flex items-center gap-6">
+                <Link href="/" className="flex items-center gap-2.5 group">
+                  <BrandMark />
+                  <div className="flex flex-col">
+                    <span className="font-story text-xl font-semibold italic tracking-tight text-foreground group-hover:opacity-90 transition-opacity">
+                      Samvaad
+                    </span>
+                    <span className="text-[0.65rem] font-mono tracking-widest text-muted-foreground uppercase -mt-1">
+                      Sovereign AI
+                    </span>
+                  </div>
+                </Link>
+
+                <nav className="hidden md:flex items-center gap-1.5 ml-4">
+                  <Link
+                    href="/dossiers"
+                    className="text-xs font-medium px-3 py-1.5 rounded-full text-foreground/80 hover:text-foreground hover:bg-muted/70 transition-colors"
+                  >
+                    Dossiers
                   </Link>
-                  <span className="ml-2 text-xs text-muted-foreground hidden sm:inline-block">
-                    Press Briefing System
-                  </span>
-                </div>
+                </nav>
               </div>
+
               <div className="flex items-center gap-3">
                 <Show when="signed-out">
                   <SignInButton mode="modal">
-                    <button className="text-sm font-medium px-3.5 py-1.5 rounded-md hover:bg-muted transition-colors cursor-pointer">
+                    <button
+                      data-slot="button"
+                      data-variant="outline"
+                      className="text-xs font-medium px-3.5 py-1.5 rounded-full border border-border bg-background hover:bg-control hover:text-foreground transition-all cursor-pointer"
+                    >
                       Sign in
                     </button>
                   </SignInButton>
                   <SignUpButton mode="modal">
-                    <button className="text-sm font-medium px-3.5 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer shadow-xs">
-                      Sign up
+                    <button
+                      data-slot="button"
+                      data-variant="default"
+                      className="text-xs font-semibold px-4 py-1.5 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all cursor-pointer"
+                    >
+                      Get Started
                     </button>
                   </SignUpButton>
                 </Show>
@@ -75,7 +119,7 @@ export default function RootLayout({
                   <UserButton
                     appearance={{
                       elements: {
-                        avatarBox: "w-9 h-9",
+                        avatarBox: "w-8 h-8 rounded-full ring-1 ring-border",
                       },
                     }}
                   />
@@ -83,10 +127,11 @@ export default function RootLayout({
               </div>
             </div>
           </header>
-          {children}
+          <main className="flex-1">{children}</main>
         </ClerkProvider>
       </body>
     </html>
   );
 }
+
 

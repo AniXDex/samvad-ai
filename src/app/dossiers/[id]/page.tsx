@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 import { SignInButton } from "@clerk/nextjs";
+import { ShieldAlert } from "lucide-react";
 import { getStore } from "@/server/context";
 import { Button } from "@/components/ui/button";
 import { ReviewEditor, type DocumentDetail } from "@/components/dossier/review-editor";
@@ -15,13 +16,22 @@ export default async function DossierDetailPage({ params }: DossierPageProps): P
 
   if (!isAuthenticated || !userId) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4">
-        <h1 className="text-2xl font-bold">Officer Authorization Required</h1>
-        <p className="text-muted-foreground max-w-md">
-          Accessing case evidence and editorial sign-off requires an authorized session.
-        </p>
+      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-5">
+        <div className="w-14 h-14 rounded-full bg-gold/15 flex items-center justify-center text-primary border border-primary/20">
+          <ShieldAlert className="w-7 h-7" />
+        </div>
+        <div className="space-y-2 max-w-md">
+          <h1 className="text-2xl font-story font-semibold tracking-tight text-foreground">
+            Officer Authorization Required
+          </h1>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Accessing case evidence, OCR inspector, and editorial sign-off requires an authorized officer session.
+          </p>
+        </div>
         <SignInButton mode="modal">
-          <Button variant="default">Sign In to Continue</Button>
+          <Button variant="default" size="lg">
+            Sign In to Access Case
+          </Button>
         </SignInButton>
       </div>
     );
