@@ -131,6 +131,22 @@ export async function approveDocumentAction(input: {
       console.error("Style memory update note:", memErr);
     }
 
+    // Dispatch durable event to Inngest for async indexing and memory persistence
+    try {
+      const { inngest } = await import("@/inngest/client");
+      await inngest.send({
+        name: "document/approved",
+        data: {
+          documentId: input.documentId,
+          tenantId: input.tenantId,
+          title: approved.title,
+          approvedBy: userId,
+        },
+      });
+    } catch (inngestErr) {
+      console.error("Inngest document/approved dispatch note:", inngestErr);
+    }
+
     revalidatePath(`/dossiers/${input.documentId}`);
     revalidatePath("/dossiers");
     return { success: true, data: { status: approved.status } };

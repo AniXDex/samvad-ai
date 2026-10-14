@@ -1,7 +1,16 @@
 import { describe, expect, test } from "vitest";
-import { parseUploadPayload } from "./functions";
+import { parseUploadPayload, functions } from "./functions";
 
-describe("Inngest uploadComplete pipeline", () => {
+describe("Inngest pipeline registration & payload parsing", () => {
+  test("registers all 4 durable lifecycle functions", () => {
+    expect(functions).toHaveLength(4);
+    const ids = functions.map((f) => f.id());
+    expect(ids).toContain("upload-complete");
+    expect(ids).toContain("document-approved");
+    expect(ids).toContain("evidence-processed");
+    expect(ids).toContain("scheduled-audit-sync");
+  });
+
   test("parseUploadPayload parses valid audio payload", () => {
     const raw = {
       documentId: "doc-123",
