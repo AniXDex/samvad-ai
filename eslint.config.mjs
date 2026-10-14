@@ -16,6 +16,8 @@ const eslintConfig = defineConfig([
     ".agents/**",
     ".claude/**",
     ".kiro/**",
+    // Trigger.dev runner and build artifacts:
+    ".trigger/**",
   ]),
 ]);
 
