@@ -14,10 +14,12 @@ seams; tests live at module interfaces; one adapter = hypothetical seam, two
 (real + fake) = real one.
 
 Decisions: R2 for blobs (S3 presigned PUT, region auto, server-built keys);
-Drizzle + `pg` next (pooled app, direct migrate); Neon Managed Better Auth;
+Drizzle + `pg` (pooled app, direct migrate); DB rule: `db:push` in dev
+(persistent `dev` branch, no migration files), `db:generate` + `db:migrate`
+for prod only; Neon Managed Better Auth;
 Trigger.dev = heavy durable jobs, Inngest = events/cron; Qdrant vectors;
 mem0 later. Workflow: spec → implement → `typecheck` + `test` + `lint` +
-`build` → commit → push (`main`, `Mayank-saraswal/samvaad-ai`).
+`build` → commit → push (`main`, `Mayank-saraswal/samvad-ai`).
 
 Blockers: Neon AI Gateway Free plan does not serve models (paid needed for
 live LLM); Trigger.dev login is a human step (resumable flow per skill);

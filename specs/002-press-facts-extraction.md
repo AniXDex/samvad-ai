@@ -1,12 +1,17 @@
-# SPEC 002 — PressNoteFacts extraction (next feat)
+# SPEC 002 — PressNoteFacts core ✅ implemented deterministic core (feat 3)
 
-Trigger job `press-note/extract`: Mistral OCR pages {text,conf,bbox} /
-Sarvam `saaras:v4` codemix + OpenAI `gpt-transcribe` fallback → verbatim
-segments → PII redact → structuring LLM temp 0, strict JSON schema, every fact
-`{value, segment_ids, quote}`, missing → `null + not_stated`, conflicts →
-`status:conflicting + candidates[]` → Jev Noul verify (max P(wrong) > 0.7 →
-one retry, then human) → neutrality gate → EN+HI bundle (3 headlines ≤15w,
-80w summary, 400w detail, sentence citations). New code goes in
-`src/lib/press-facts` as a deep module with the same Result/fake-adapter shape
-as `src/lib/r2`. Blocked on: Trigger.dev login (human) + paid AI Gateway (or
-direct provider keys).
+Module `src/lib/press-facts` (`facts.ts` + `neutrality.ts` + `bundle.ts`).
+`structureFacts` enforces: missing → `not_stated`, uncited → `unverified`,
+disagreeing spans → `conflicting` with candidates retained, dangling span
+indexes → reported issues. `checkNeutrality` flags presumption-of-guilt /
+sensational / unverified-scale spans (assistive pre-check; Jev + human remain
+the real gates). `buildDraftBundle` renders the fixed EN+HI bundle
+(3 headlines ≤15w enforced, summary, inverted-pyramid detail) from cited
+values only — unconfirmed renders as "could not be confirmed", and template
+output self-passes the neutrality check in tests.
+
+13 tests, all through the module interfaces. Still open (needs keys):
+LLM claim extractor producing `{field, value, spanIndex}` claims, real Jev
+`FactVerifier` port adapter, LLM fluency renderer behind the bundle seam.
+The Trigger job `press-note/extract` (OCR/STT → claims) wires in once
+Trigger.dev login + provider keys exist.

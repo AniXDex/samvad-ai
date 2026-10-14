@@ -12,7 +12,8 @@ a `pg` pool (max 5) + Drizzle; connection string injected, `process.env` never
 read inside. `drizzle.config.ts` points at `./drizzle` with the direct URL;
 migration `drizzle/0000_true_blizzard.sql` generated (2 tables, 1 FK).
 
-Proof (skill-blessed branch flow): ephemeral branch `feat2-verify` created →
-`drizzle-kit migrate` applied there (exit 0) → guarded live suite
-insert/select/delete round-trip passed → branch deleted. Production was never
-written. Next: `documents`/`sources` route handlers + RLS policies.
+Proof (skill-blessed branch flow): migration generated for prod record;
+dev workflow is `npm run db:push` against the persistent `dev` branch —
+proven 2026-10-14 (push exit 0, live round-trip passed, production never
+written). Prod deploys use `db:generate` + `db:migrate` only. Next:
+`documents`/`sources` route handlers + RLS policies.

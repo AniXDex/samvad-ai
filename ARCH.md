@@ -13,7 +13,10 @@ small interface at its seam; tests cross the same seam as callers.
 - ✅ `src/lib/db` — Postgres seam: `pickConnectionString` (pooled app / direct
   migrate) + `createDb` (injected string, pg max 5) + Drizzle schema
   (`documents`, `sources`); migration `drizzle/0000_true_blizzard.sql`.
-- `src/lib/press-facts` — extraction schema + validators. Next feat.
+- ✅ `src/lib/press-facts` — `structureFacts` (confirmed/unverified/not_stated/
+  conflicting rules) + `checkNeutrality` pre-check + `buildDraftBundle`
+  (EN+HI template-v1, headline cap, unconfirmed clauses); LLM extractor, Jev
+  port adapter, and fluency renderer plug in later behind the same seams.
 - `src/app/editor` — shadcn approval UI (components via `npx shadcn add`). Next feat.
 
 ## Services
