@@ -38,9 +38,11 @@ wrangler R2-admin needs an account token (the R2-scoped cfat token is S3-only).
   - Officer Review Dossier workspace (`src/app/dossiers/[id]/page.tsx`, `review-editor.tsx`, `actions.ts`).
   - Tenant membership & RBAC (SPEC 005 gap closed: `memberships` table in Drizzle, approver/contributor/auditor role enforcement in tRPC & Server Actions).
   - Mistral OCR & Vision deep module (SPEC 008: `src/lib/ocr/mistral.ts`, `src/trigger/ocr-document.ts`).
-  - Qdrant Vector Search & Precedent Retrieval (SPEC 009: `src/lib/vector/qdrant.ts`, `precedents.search` tRPC router).
-- Specs: 001–009 in `specs/`, all implemented and verified.
-- Gates: 69 passed + 4 live-skipped, typecheck 0, lint 0, build 0, any-grep 0,
+  - Qdrant Vector Search & Precedent Retrieval (SPEC 009: `src/lib/vector/qdrant.ts`, `precedents.search` tRPC router, UI search drawer in review editor).
+  - mem0 Style & Entity Memory (SPEC 010: `src/lib/memory/mem0.ts`, gated to approved press notes).
+  - Inngest event fan-out: `upload/complete` validates payload and dispatches to Trigger.dev tasks (`transcribe-audio-briefing` or `ocr-document-scan`).
+- Specs: 001–010 in `specs/`, all implemented and verified.
+- Gates: 77 passed + 4 live-skipped, typecheck 0, lint 0, build 0, any-grep 0,
   Devanagari-grep 0 in `src/`.
 - Key ledger — GOOD: Clerk keys, Neon OAuth, R2 set, cookie secret, Mistral, gateway,
   Laya, Sarvam API key (proven live 459ms), Trigger.dev dev token.
