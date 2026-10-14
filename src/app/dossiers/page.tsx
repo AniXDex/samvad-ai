@@ -17,6 +17,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { WorkspaceSelector } from "@/components/dossier/workspace-selector";
 import type { MembershipRole } from "@/server/documents/store";
 
+export const instant = false;
+
 export default async function DossiersPage(): Promise<React.JSX.Element> {
   const { isAuthenticated, userId, orgId, orgRole } = await auth();
   const user = isAuthenticated ? await currentUser() : null;

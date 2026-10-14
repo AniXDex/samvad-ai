@@ -2,6 +2,8 @@ import Link from "next/link";
 import { CreateOrganization } from "@clerk/nextjs";
 import { ArrowLeft, Building2 } from "lucide-react";
 
+export const instant = false;
+
 export default function CreateOrganizationPage(): React.JSX.Element {
   return (
     <div className="flex-1 max-w-2xl w-full mx-auto p-6 sm:p-12 flex flex-col space-y-6">

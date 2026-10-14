@@ -11,6 +11,8 @@ interface DossierPageProps {
   readonly params: Promise<{ id: string }>;
 }
 
+export const instant = false;
+
 export default async function DossierDetailPage({ params }: DossierPageProps): Promise<React.JSX.Element> {
   const { id } = await params;
   const { isAuthenticated, userId, orgId, orgRole } = await auth();
