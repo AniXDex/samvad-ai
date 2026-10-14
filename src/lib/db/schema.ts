@@ -7,7 +7,7 @@
  * UUIDs so callers never invent keys. `sources.r2Key` stores the key built by
  * the r2 module — the seam between the two modules is that string, nothing more.
  */
-import { jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const documents = pgTable("documents", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -38,3 +38,37 @@ export const sources = pgTable("sources", {
 
 export type SourceRow = typeof sources.$inferSelect;
 export type NewSource = typeof sources.$inferInsert;
+
+export const MEMBERSHIP_ROLES = ["contributor", "approver", "auditor"] as const;
+export type MembershipRole = (typeof MEMBERSHIP_ROLES)[number];
+
+export const memberships = pgTable("memberships", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: text("user_id").notNull(),
+  tenantId: text("tenant_id").notNull(),
+  role: text("role").notNull().default("contributor"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type MembershipRow = typeof memberships.$inferSelect;
+export type NewMembership = typeof memberships.$inferInsert;
+
+export const revisions = pgTable("revisions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  documentId: uuid("document_id")
+    .notNull()
+    .references(() => documents.id, { onDelete: "cascade" }),
+  revisionNumber: integer("revision_number").notNull(),
+  diff: jsonb("diff").notNull(),
+  factsSnapshot: jsonb("facts_snapshot"),
+  bundleSnapshot: jsonb("bundle_snapshot"),
+  authorId: text("author_id").notNull(),
+  reason: text("reason").notNull().default("Initial draft"),
+  approved: boolean("approved").notNull().default(false),
+  approvedBy: text("approved_by"),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type RevisionRow = typeof revisions.$inferSelect;
+export type NewRevision = typeof revisions.$inferInsert;

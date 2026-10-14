@@ -3,10 +3,17 @@
  * Internal seam: instantiated by the route layer with a real database, never
  * by feature code or unit tests. Timestamps come from the database row.
  */
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "@/lib/db/schema";
-import { isDocumentStatus, type DocumentRecord, type DocumentsStore } from "./store";
+import {
+  isDocumentStatus,
+  type DocumentDetailRecord,
+  type DocumentRecord,
+  type DocumentsStore,
+  type RevisionRecord,
+  type SourceRecord,
+} from "./store";
 
 export function createDrizzleDocumentsStore(db: NodePgDatabase<typeof schema>): DocumentsStore {
   return {
@@ -25,6 +32,7 @@ export function createDrizzleDocumentsStore(db: NodePgDatabase<typeof schema>): 
       if (!row || !isDocumentStatus(row.status)) throw new Error("documents insert returned an unexpected row");
       return { id: row.id, tenantId: row.tenantId, title: row.title, status: row.status, createdAt: row.createdAt };
     },
+
     async list(tenantId, limit): Promise<readonly DocumentRecord[]> {
       const rows = await db
         .select({
@@ -45,6 +53,162 @@ export function createDrizzleDocumentsStore(db: NodePgDatabase<typeof schema>): 
         }
       }
       return records;
+    },
+
+    async get(input): Promise<DocumentDetailRecord | null> {
+      const docRows = await db
+        .select({
+          id: schema.documents.id,
+          tenantId: schema.documents.tenantId,
+          title: schema.documents.title,
+          status: schema.documents.status,
+          createdAt: schema.documents.createdAt,
+        })
+        .from(schema.documents)
+        .where(and(eq(schema.documents.id, input.id), eq(schema.documents.tenantId, input.tenantId)))
+        .limit(1);
+
+      const doc = docRows[0];
+      if (!doc || !isDocumentStatus(doc.status)) return null;
+
+      const sourceRows = await db
+        .select()
+        .from(schema.sources)
+        .where(eq(schema.sources.documentId, doc.id));
+
+      const sources: SourceRecord[] = sourceRows.map((s) => ({
+        id: s.id,
+        documentId: s.documentId,
+        kind: s.kind,
+        r2Key: s.r2Key,
+        sha256: s.sha256,
+        metadata: s.metadata,
+        createdAt: s.createdAt,
+      }));
+
+      const revisionRows = await db
+        .select()
+        .from(schema.revisions)
+        .where(eq(schema.revisions.documentId, doc.id))
+        .orderBy(schema.revisions.revisionNumber);
+
+      const revisions: RevisionRecord[] = revisionRows.map((r) => ({
+        id: r.id,
+        documentId: r.documentId,
+        revisionNumber: r.revisionNumber,
+        diff: r.diff,
+        factsSnapshot: r.factsSnapshot,
+        bundleSnapshot: r.bundleSnapshot,
+        authorId: r.authorId,
+        reason: r.reason,
+        approved: r.approved,
+        approvedBy: r.approvedBy,
+        approvedAt: r.approvedAt,
+        createdAt: r.createdAt,
+      }));
+
+      return {
+        id: doc.id,
+        tenantId: doc.tenantId,
+        title: doc.title,
+        status: doc.status,
+        createdAt: doc.createdAt,
+        sources,
+        revisions,
+      };
+    },
+
+    async addSource(input): Promise<SourceRecord> {
+      const inserted = await db
+        .insert(schema.sources)
+        .values({
+          documentId: input.documentId,
+          kind: input.kind,
+          r2Key: input.r2Key ?? null,
+          sha256: input.sha256 ?? null,
+          metadata: input.metadata ?? null,
+        })
+        .returning();
+
+      const row = inserted[0];
+      if (!row) throw new Error("sources insert returned no rows");
+      return {
+        id: row.id,
+        documentId: row.documentId,
+        kind: row.kind,
+        r2Key: row.r2Key,
+        sha256: row.sha256,
+        metadata: row.metadata,
+        createdAt: row.createdAt,
+      };
+    },
+
+    async addRevision(input): Promise<RevisionRecord> {
+      const inserted = await db
+        .insert(schema.revisions)
+        .values({
+          documentId: input.documentId,
+          revisionNumber: input.revisionNumber,
+          diff: input.diff,
+          factsSnapshot: input.factsSnapshot ?? null,
+          bundleSnapshot: input.bundleSnapshot ?? null,
+          authorId: input.authorId,
+          reason: input.reason,
+          approved: false,
+        })
+        .returning();
+
+      const row = inserted[0];
+      if (!row) throw new Error("revisions insert returned no rows");
+      return {
+        id: row.id,
+        documentId: row.documentId,
+        revisionNumber: row.revisionNumber,
+        diff: row.diff,
+        factsSnapshot: row.factsSnapshot,
+        bundleSnapshot: row.bundleSnapshot,
+        authorId: row.authorId,
+        reason: row.reason,
+        approved: row.approved,
+        approvedBy: row.approvedBy,
+        approvedAt: row.approvedAt,
+        createdAt: row.createdAt,
+      };
+    },
+
+    async approve(input): Promise<DocumentRecord | null> {
+      const updated = await db
+        .update(schema.documents)
+        .set({ status: "approved", updatedAt: new Date() })
+        .where(and(eq(schema.documents.id, input.id), eq(schema.documents.tenantId, input.tenantId)))
+        .returning({
+          id: schema.documents.id,
+          tenantId: schema.documents.tenantId,
+          title: schema.documents.title,
+          status: schema.documents.status,
+          createdAt: schema.documents.createdAt,
+        });
+
+      const row = updated[0];
+      if (!row || !isDocumentStatus(row.status)) return null;
+
+      // Update the latest revision to approved
+      await db
+        .update(schema.revisions)
+        .set({
+          approved: true,
+          approvedBy: input.approvedBy,
+          approvedAt: new Date(),
+        })
+        .where(eq(schema.revisions.documentId, input.id));
+
+      return {
+        id: row.id,
+        tenantId: row.tenantId,
+        title: row.title,
+        status: row.status,
+        createdAt: row.createdAt,
+      };
     },
   };
 }

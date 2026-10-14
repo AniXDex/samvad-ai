@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { getTableConfig } from "drizzle-orm/pg-core";
 import { isErr, isOk } from "@/lib/result/result";
 import { pickConnectionString } from "./db";
-import { documents, sources } from "./schema";
+import { documents, memberships, revisions, sources } from "./schema";
 
 describe("db module", () => {
   test("app traffic takes the pooled URL", () => {
@@ -33,8 +33,14 @@ describe("db module", () => {
   test("schema exposes the ingest contract tables", () => {
     expect(getTableConfig(documents).name).toBe("documents");
     expect(getTableConfig(sources).name).toBe("sources");
+    expect(getTableConfig(memberships).name).toBe("memberships");
+    expect(getTableConfig(revisions).name).toBe("revisions");
     const sourceColumns = getTableConfig(sources).columns.map((c) => c.name);
     expect(sourceColumns).toContain("r2_key");
     expect(sourceColumns).toContain("sha256");
+    const revisionColumns = getTableConfig(revisions).columns.map((c) => c.name);
+    expect(revisionColumns).toContain("document_id");
+    expect(revisionColumns).toContain("diff");
+    expect(revisionColumns).toContain("approved");
   });
 });
