@@ -8,6 +8,7 @@ import { structureFacts } from "@/lib/press-facts/facts";
 import { checkNeutrality } from "@/lib/press-facts/neutrality";
 import { buildDraftBundle, ENGLISH_PHRASES } from "@/lib/press-facts/bundle";
 import { isOk } from "@/lib/result/result";
+import { createMem0Adapter, createMemoryStoreFake } from "@/lib/memory/mem0";
 
 export interface ActionResult<T> {
   readonly success: boolean;
@@ -109,6 +110,20 @@ export async function approveDocumentAction(input: {
       } catch (tokenErr) {
         console.error("Trigger waitpoint token completion note:", tokenErr);
       }
+    }
+
+    // Learn style and entity memory strictly from approved notes
+    try {
+      const mem0Key = process.env.MEM0_API_KEY;
+      const memoryEngine = mem0Key ? createMem0Adapter({ apiKey: mem0Key }) : createMemoryStoreFake();
+      await memoryEngine.addApprovedNote({
+        userId,
+        tenantId: input.tenantId,
+        noteId: input.documentId,
+        text: approved.title,
+      });
+    } catch (memErr) {
+      console.error("Style memory update note:", memErr);
     }
 
     revalidatePath(`/dossiers/${input.documentId}`);
