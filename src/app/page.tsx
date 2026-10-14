@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 
@@ -86,35 +87,50 @@ export default async function HomePage(): Promise<React.JSX.Element> {
 
               {/* Officer Quick Actions */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-                <div className="p-5 rounded-xl border border-border bg-card/60 hover:bg-card transition-all space-y-2">
-                  <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
+                <Link
+                  href="/dossiers"
+                  className="p-5 rounded-xl border border-border bg-card/60 hover:bg-card hover:border-primary/40 transition-all space-y-2 block group"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-sm group-hover:scale-105 transition-transform">
                     01
                   </div>
-                  <h3 className="font-semibold text-base">New Press Dossier</h3>
+                  <h3 className="font-semibold text-base group-hover:text-primary transition-colors">
+                    New Press Dossier →
+                  </h3>
                   <p className="text-xs text-muted-foreground">
                     Scaffold a new case dossier with strict tenant isolation and source tracking.
                   </p>
-                </div>
+                </Link>
 
-                <div className="p-5 rounded-xl border border-border bg-card/60 hover:bg-card transition-all space-y-2">
-                  <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
+                <Link
+                  href="/dossiers"
+                  className="p-5 rounded-xl border border-border bg-card/60 hover:bg-card hover:border-primary/40 transition-all space-y-2 block group"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-sm group-hover:scale-105 transition-transform">
                     02
                   </div>
-                  <h3 className="font-semibold text-base">Upload FIR & Audio</h3>
+                  <h3 className="font-semibold text-base group-hover:text-primary transition-colors">
+                    Upload FIR &amp; Audio →
+                  </h3>
                   <p className="text-xs text-muted-foreground">
                     Direct-to-R2 presigned upload for PDFs, voice recordings, and incident images.
                   </p>
-                </div>
+                </Link>
 
-                <div className="p-5 rounded-xl border border-border bg-card/60 hover:bg-card transition-all space-y-2">
-                  <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
+                <Link
+                  href="/dossiers"
+                  className="p-5 rounded-xl border border-border bg-card/60 hover:bg-card hover:border-primary/40 transition-all space-y-2 block group"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-sm group-hover:scale-105 transition-transform">
                     03
                   </div>
-                  <h3 className="font-semibold text-base">Review & Sign Off</h3>
+                  <h3 className="font-semibold text-base group-hover:text-primary transition-colors">
+                    Review &amp; Sign Off →
+                  </h3>
                   <p className="text-xs text-muted-foreground">
                     Laya fact verification check, dual-language summary preview, and final publish approval.
                   </p>
-                </div>
+                </Link>
               </div>
             </div>
           )}
