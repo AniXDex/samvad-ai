@@ -22,6 +22,7 @@
     "@neon/config": "^1.9.1",
     "@neondatabase/auth": "^0.6.0-beta",
     "@tanstack/react-query": "^5.104.2",
+    "@trigger.dev/sdk": "^4.7.3",
     "@trpc/client": "^11.19.0",
     "@trpc/server": "^11.19.0",
     "@trpc/tanstack-react-query": "^11.19.0",
@@ -29,6 +30,7 @@
     "cn": "^0.4.0",
     "dotenv": "^18.0.7",
     "drizzle-orm": "^0.45.4",
+    "inngest": "^4.23.0",
     "next": "16.4.0",
     "pg": "^8.23.1",
     "react": "19.3.0",
@@ -39,6 +41,7 @@
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
+    "@trigger.dev/build": "^4.7.3",
     "@types/node": "^24.19.2",
     "@types/pg": "^8.23.1",
     "@types/react": "^19",

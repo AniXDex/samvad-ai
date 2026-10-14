@@ -41,10 +41,13 @@ wrangler R2-admin needs an account token (the R2-scoped cfat token is S3-only).
 - Gates green throughout: 32 passed + 2 live-skipped, lint/build/typecheck 0, any-grep 0.
 - Secrets: .env.local + .neon gitignored (verified); R2 creds in User env + .env.local.
 - Neon: linked samvaad-ai/production, Auth enabled, region aws-ap-southeast-1.
-- Feat 4: tRPC (`createAppRouter(store)`, health public, documents protected,
-  zod tenant/title/limit) + Managed Auth wiring (`config.ts` pure,
-  `server.ts` thin leaf, `session.ts` mapping) + Drizzle store adapter.
-  Live HTTP vs `next start`: health 200, `/api/auth/ok` 200, signed-out
-  documents.list 401. Tenant-from-input gap → feat 5 (memberships + RLS).
-- Still key-blocked: LLM/Jev/mem0 keys, Trigger.dev login. mem0 = write-after-approve only.
-- Next (feat 5): memberships + tenant enforcement, then editor UI.
+- Feat 5: AI keys stored (`MISTRAL_API_KEY`, `LITELLM_*` gateway per
+  docs.corsair.dev/llm-gateway, `SARVAM_API_KEY`); gateway verified
+  (models list + 15-token nano smoke 200; `/key/info` 500s server-side —
+  their LiteLLM schema drift, reported honestly); Mistral key verified via
+  models list; Sarvam unverified until first STT run. Inngest dev loop live
+  (`/api/inngest` 200 dev mode, 1 function). Trigger.dev CLI 4.7.3 cached,
+  resumable login started — user must open the authorization URL, then
+  `trigger.config.ts` (needs dashboard project ref) + `TRIGGER_SECRET_KEY`.
+- Still key-blocked: Jev/mem0 keys, Trigger project ref + secret (after user login).
+- Next: Trigger config + first task after login; memberships + RLS; editor UI.
