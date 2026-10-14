@@ -9,6 +9,7 @@ import { checkNeutrality } from "@/lib/press-facts/neutrality";
 import { buildDraftBundle, ENGLISH_PHRASES } from "@/lib/press-facts/bundle";
 import { isOk } from "@/lib/result/result";
 import { createMem0Adapter, createMemoryStoreFake } from "@/lib/memory/mem0";
+import type { MembershipRole } from "@/server/documents/store";
 
 export interface ActionResult<T> {
   readonly success: boolean;
@@ -16,30 +17,53 @@ export interface ActionResult<T> {
   readonly error?: string;
 }
 
+export async function resolveUserRole(
+  store: ReturnType<typeof getStore>,
+  userId: string,
+  tenantId: string,
+  orgId: string | null | undefined,
+  orgRole: string | null | undefined
+): Promise<MembershipRole> {
+  if (orgRole === "org:admin") return "approver";
+  if (orgRole === "org:member") return "contributor";
+  if (orgRole === "org:auditor") return "auditor";
+
+  const existing = await store.getMembership({ userId, tenantId });
+  if (existing) return existing.role;
+
+  // Personal account workspace owner defaults to approver
+  if (!orgId) {
+    await store.addMembership({ userId, tenantId, role: "approver" });
+    return "approver";
+  }
+
+  // Member of an organization without special mapped role defaults to contributor
+  await store.addMembership({ userId, tenantId, role: "contributor" });
+  return "contributor";
+}
+
 export async function createDocumentAction(formData: FormData): Promise<void> {
-  const { userId, isAuthenticated } = await auth();
+  const { userId, isAuthenticated, orgId, orgRole } = await auth();
   if (!isAuthenticated || !userId) {
     throw new Error("Authentication required to create a press dossier.");
   }
 
   const title = formData.get("title");
-  const tenantId = formData.get("tenantId") || "default-dept";
+  const formTenant = formData.get("tenantId");
+  const tenantId = orgId || (typeof formTenant === "string" && formTenant.trim() ? formTenant.trim() : "default-dept");
   const domainProfileId = formData.get("domainProfileId") || "public-safety";
 
   if (typeof title !== "string" || !title.trim()) {
     throw new Error("Title is required.");
   }
-  if (typeof tenantId !== "string" || !tenantId.trim()) {
-    throw new Error("Tenant ID is required.");
-  }
 
   const store = getStore();
   const tId = tenantId.trim();
 
-  // Ensure author has membership in tenant
-  const existingMembership = await store.getMembership({ userId, tenantId: tId });
-  if (!existingMembership) {
-    await store.addMembership({ userId, tenantId: tId, role: "approver" });
+  // Enforce RBAC: Auditors cannot create dossiers
+  const role = await resolveUserRole(store, userId, tId, orgId, orgRole);
+  if (role === "auditor") {
+    throw new Error("Auditors have read-only permissions and cannot create dossiers.");
   }
 
   const doc = await store.create({
@@ -69,7 +93,7 @@ export async function approveDocumentAction(input: {
   tenantId: string;
   waitTokenId?: string;
 }): Promise<ActionResult<{ status: string }>> {
-  const { userId, isAuthenticated } = await auth();
+  const { userId, isAuthenticated, orgId, orgRole } = await auth();
   if (!isAuthenticated || !userId) {
     return { success: false, error: "Authentication required to approve a press note." };
   }
@@ -78,9 +102,12 @@ export async function approveDocumentAction(input: {
     const store = getStore();
 
     // Verify user is an approver in this tenant
-    const membership = await store.getMembership({ userId, tenantId: input.tenantId });
-    if (!membership || membership.role !== "approver") {
-      return { success: false, error: "Only officers with the approver role can approve press notes." };
+    const role = await resolveUserRole(store, userId, input.tenantId, orgId, orgRole);
+    if (role !== "approver") {
+      return {
+        success: false,
+        error: `Access denied: Role '${role}' cannot certify releases. Approver role required.`,
+      };
     }
 
     const approved = await store.approve({
@@ -163,13 +190,29 @@ export async function saveRevisionAction(input: {
   factsSnapshot?: unknown;
   bundleSnapshot?: unknown;
 }): Promise<ActionResult<{ revisionId: string }>> {
-  const { userId, isAuthenticated } = await auth();
+  const { userId, isAuthenticated, orgId, orgRole } = await auth();
   if (!isAuthenticated || !userId) {
     return { success: false, error: "Authentication required to save revision." };
   }
 
   try {
     const store = getStore();
+    const doc = await store.get({ id: input.documentId });
+    if (!doc) {
+      return { success: false, error: "Document not found." };
+    }
+    if (doc.status === "approved") {
+      return {
+        success: false,
+        error: "Document is digitally sealed and approved. Revisions are permanently locked.",
+      };
+    }
+
+    const role = await resolveUserRole(store, userId, doc.tenantId, orgId, orgRole);
+    if (role === "auditor") {
+      return { success: false, error: "Auditors have read-only permissions and cannot save revisions." };
+    }
+
     const rev = await store.addRevision({
       documentId: input.documentId,
       revisionNumber: input.revisionNumber,
@@ -292,16 +335,16 @@ export async function mintUploadTicketAction(input: {
   contentType: string;
   contentLengthBytes: number;
 }): Promise<ActionResult<{ uploadUrl: string; key: string; expiresAt: string }>> {
-  const { userId, isAuthenticated } = await auth();
+  const { userId, isAuthenticated, orgId, orgRole } = await auth();
   if (!isAuthenticated || !userId) {
     return { success: false, error: "Authentication required to upload files." };
   }
 
   try {
     const store = getStore();
-    const membership = await store.getMembership({ userId, tenantId: input.tenantId });
-    if (!membership) {
-      return { success: false, error: "User is not a member of this tenant department." };
+    const role = await resolveUserRole(store, userId, input.tenantId, orgId, orgRole);
+    if (role === "auditor") {
+      return { success: false, error: "Auditors have read-only permissions and cannot upload files." };
     }
 
     const { getR2 } = await import("@/server/context");
@@ -350,16 +393,16 @@ export async function completeUploadAction(input: {
   kind: "form" | "pdf" | "image" | "audio";
   sha256?: string;
 }): Promise<ActionResult<{ sourceId: string }>> {
-  const { userId, isAuthenticated } = await auth();
+  const { userId, isAuthenticated, orgId, orgRole } = await auth();
   if (!isAuthenticated || !userId) {
     return { success: false, error: "Authentication required to complete upload." };
   }
 
   try {
     const store = getStore();
-    const membership = await store.getMembership({ userId, tenantId: input.tenantId });
-    if (!membership) {
-      return { success: false, error: "User is not a member of this tenant department." };
+    const role = await resolveUserRole(store, userId, input.tenantId, orgId, orgRole);
+    if (role === "auditor") {
+      return { success: false, error: "Auditors have read-only permissions and cannot complete file uploads." };
     }
 
     const source = await store.addSource({

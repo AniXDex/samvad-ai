@@ -65,7 +65,7 @@ export function isMembershipRole(value: string): value is MembershipRole {
 export interface DocumentsStore {
   create(input: { tenantId: string; title: string }): Promise<DocumentRecord>;
   list(tenantId: string, limit: number): Promise<readonly DocumentRecord[]>;
-  get(input: { id: string; tenantId: string }): Promise<DocumentDetailRecord | null>;
+  get(input: { id: string; tenantId?: string }): Promise<DocumentDetailRecord | null>;
   addSource(input: { documentId: string; kind: string; r2Key?: string; sha256?: string; metadata?: unknown }): Promise<SourceRecord>;
   addRevision(input: { documentId: string; revisionNumber: number; authorId: string; diff: unknown; reason: string; factsSnapshot?: unknown; bundleSnapshot?: unknown }): Promise<RevisionRecord>;
   approve(input: { id: string; tenantId: string; approvedBy: string }): Promise<DocumentRecord | null>;
@@ -105,7 +105,7 @@ export function createMemoryDocumentsStore(): DocumentsStore & { size(): number 
       return docs.filter((r) => r.tenantId === tenantId).slice(0, limit);
     },
     async get(input) {
-      const doc = docs.find((d) => d.id === input.id && d.tenantId === input.tenantId);
+      const doc = docs.find((d) => d.id === input.id && (input.tenantId ? d.tenantId === input.tenantId : true));
       if (!doc) return null;
       return {
         ...doc,

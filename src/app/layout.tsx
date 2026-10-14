@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ClerkProvider, SignInButton, SignUpButton, Show, UserButton } from "@clerk/nextjs";
+import { ClerkProvider, SignInButton, SignUpButton, Show, UserButton, OrganizationSwitcher } from "@clerk/nextjs";
 import { shadcn } from "@clerk/ui/themes";
 import { IBM_Plex_Mono, Manrope, Newsreader } from "next/font/google";
 import "./globals.css";
@@ -116,13 +116,28 @@ export default function RootLayout({
                   </SignUpButton>
                 </Show>
                 <Show when="signed-in">
-                  <UserButton
-                    appearance={{
-                      elements: {
-                        avatarBox: "w-8 h-8 rounded-full ring-1 ring-border",
-                      },
-                    }}
-                  />
+                  <div className="flex items-center gap-2.5">
+                    <OrganizationSwitcher
+                      hidePersonal={false}
+                      afterCreateOrganizationUrl="/dossiers"
+                      afterSelectOrganizationUrl="/dossiers"
+                      afterLeaveOrganizationUrl="/dossiers"
+                      appearance={{
+                        elements: {
+                          rootBox: "flex items-center",
+                          organizationSwitcherTrigger:
+                            "text-xs font-medium px-3 py-1.5 rounded-full border border-border/80 bg-background hover:bg-muted/70 text-foreground transition-all cursor-pointer shadow-xs",
+                        },
+                      }}
+                    />
+                    <UserButton
+                      appearance={{
+                        elements: {
+                          avatarBox: "w-8 h-8 rounded-full ring-1 ring-border",
+                        },
+                      }}
+                    />
+                  </div>
                 </Show>
               </div>
             </div>

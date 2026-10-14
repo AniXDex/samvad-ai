@@ -15,6 +15,7 @@ import {
   Upload,
   CheckCircle2,
   ShieldCheck,
+  Lock,
 } from "lucide-react";
 import { checkNeutrality, type NeutralityFlag } from "@/lib/press-facts/neutrality";
 import { HEADLINE_MAX_WORDS } from "@/lib/press-facts/bundle";
@@ -41,7 +42,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DirectUploadDropzone } from "@/components/dossier/direct-upload-dropzone";
 import { PdfInspector } from "@/components/reader/pdf-inspector";
 import { getDomainProfile } from "@/lib/domain/profiles";
-import type { DocumentStatus } from "@/server/documents/store";
+import type { DocumentStatus, MembershipRole } from "@/server/documents/store";
 
 export interface SourceItem {
   readonly id: string;
@@ -81,14 +82,23 @@ export interface DocumentDetail {
 interface ReviewEditorProps {
   readonly initialDoc: DocumentDetail;
   readonly currentUserId: string;
+  readonly userRole?: MembershipRole;
 }
 
-export function ReviewEditor({ initialDoc, currentUserId }: ReviewEditorProps): React.JSX.Element {
+export function ReviewEditor({
+  initialDoc,
+  currentUserId,
+  userRole = "approver",
+}: ReviewEditorProps): React.JSX.Element {
   const router = useRouter();
   const [doc, setDoc] = React.useState<DocumentDetail>(initialDoc);
   const [status, setStatus] = React.useState<DocumentStatus>(initialDoc.status);
   const [activeLocator, setActiveLocator] = React.useState<string | null>(null);
   const [leftTab, setLeftTab] = React.useState<string>("sources");
+
+  const canEdit = userRole !== "auditor" && status === "draft";
+  const canApprove = userRole === "approver" && status === "draft";
+  const isAuditor = userRole === "auditor";
 
   const initialDiff = doc.revisions[0]?.diff as { domainProfileId?: string } | undefined;
   const domainProfile = getDomainProfile(initialDiff?.domainProfileId);
@@ -251,6 +261,21 @@ export function ReviewEditor({ initialDoc, currentUserId }: ReviewEditorProps): 
             <Badge variant={domainProfile.badgeVariant} className="text-xs">
               {domainProfile.entityName}
             </Badge>
+            {userRole === "approver" && (
+              <Badge variant="sage" className="gap-1 px-2.5 py-0.5 text-xs font-mono">
+                <ShieldCheck className="size-3" /> Approver (Sign-off)
+              </Badge>
+            )}
+            {userRole === "contributor" && (
+              <Badge variant="gold" className="gap-1 px-2.5 py-0.5 text-xs font-mono">
+                <FileText className="size-3" /> Contributor (Editor)
+              </Badge>
+            )}
+            {userRole === "auditor" && (
+              <Badge variant="outline" className="gap-1 px-2.5 py-0.5 text-xs font-mono text-muted-foreground">
+                <Scale className="size-3" /> Auditor (Read-Only)
+              </Badge>
+            )}
             {status === "approved" ? (
               <Link href={`/verify/${doc.id}`} target="_blank">
                 <Badge variant="sage" className="gap-1 px-2.5 py-0.5 hover:ring-1 hover:ring-emerald-500/50 cursor-pointer">
@@ -321,82 +346,94 @@ export function ReviewEditor({ initialDoc, currentUserId }: ReviewEditorProps): 
           </Dialog>
 
           {/* Save Revision Dialog */}
-          <Dialog open={isRevisionDialogOpen} onOpenChange={setIsRevisionDialogOpen}>
-            <DialogTrigger render={<Button variant="outline" size="sm" />}>
-              <History className="size-3.5" /> Save Revision
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Save Case Revision</DialogTitle>
-                <DialogDescription>
-                  Enter the editorial or factual reason for this revision. Every change is logged into an immutable audit trail.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-3 py-2">
-                <label className="text-xs font-semibold text-muted-foreground">Reason for Revision</label>
-                <Input
-                  placeholder="e.g. Corrected suspect name and verified casualty count with SHO"
-                  value={revisionReason}
-                  onChange={(e) => setRevisionReason(e.target.value)}
-                  required
-                />
-              </div>
-              <DialogFooter>
-                <Button variant="default" disabled={!revisionReason.trim() || savingRevision} onClick={handleSaveRevision}>
-                  {savingRevision ? "Saving..." : "Confirm & Save Revision"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          {/* Digital Sign-off Dialog */}
-          {status === "draft" && (
-            <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
-              <DialogTrigger render={<Button variant="default" size="sm" />}>
-                <CheckCircle2 className="size-3.5" /> Approve &amp; Seal
+          {canEdit ? (
+            <Dialog open={isRevisionDialogOpen} onOpenChange={setIsRevisionDialogOpen}>
+              <DialogTrigger render={<Button variant="outline" size="sm" />}>
+                <History className="size-3.5" /> Save Revision
               </DialogTrigger>
-              <DialogContent className="sm:max-w-lg">
+              <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Authorized Digital Sign-off</DialogTitle>
+                  <DialogTitle>Save Case Revision</DialogTitle>
                   <DialogDescription>
-                    Under SKIT005 sovereign protocols, publishing requires personal officer attestation against primary sources.
+                    Enter the editorial or factual reason for this revision. Every change is logged into an immutable audit trail.
                   </DialogDescription>
                 </DialogHeader>
-
-                <div className="space-y-4 py-3">
-                  <div className="p-4 rounded-xl border border-gold/40 bg-gold/10 space-y-2">
-                    <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
-                      Legal Compliance Verification
-                    </h4>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      Presumption of innocence is strictly upheld. No non-adjudicated suspect may be termed a &quot;scamster&quot; or &quot;kingpin&quot;. Casualty numbers must match verified station records.
-                    </p>
-                  </div>
-
-                  <div className="flex items-start gap-3 p-3.5 rounded-xl border border-border/70 bg-card">
-                    <Checkbox
-                      id="confirm-verification"
-                      checked={confirmedCheckbox}
-                      onCheckedChange={(checked) => setConfirmedCheckbox(checked === true)}
-                    />
-                    <label htmlFor="confirm-verification" className="text-xs leading-relaxed cursor-pointer select-none">
-                      <strong>Mandatory Attestation:</strong> I hereby certify that I have cross-checked all casualty, crime, and suspect claims in this press release against primary case evidence.
-                    </label>
-                  </div>
+                <div className="space-y-3 py-2">
+                  <label className="text-xs font-semibold text-muted-foreground">Reason for Revision</label>
+                  <Input
+                    placeholder="e.g. Corrected suspect name and verified casualty count with SHO"
+                    value={revisionReason}
+                    onChange={(e) => setRevisionReason(e.target.value)}
+                    required
+                  />
                 </div>
-
                 <DialogFooter>
-                  <Button
-                    variant="default"
-                    disabled={!confirmedCheckbox || approving}
-                    onClick={handleApprove}
-                    className="w-full sm:w-auto"
-                  >
-                    {approving ? "Sealing..." : "Digitally Seal & Approve Release"}
+                  <Button variant="default" disabled={!revisionReason.trim() || savingRevision} onClick={handleSaveRevision}>
+                    {savingRevision ? "Saving..." : "Confirm & Save Revision"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+          ) : isAuditor ? (
+            <Button variant="outline" size="sm" disabled className="opacity-60 cursor-not-allowed text-xs">
+              <History className="size-3.5 mr-1" /> Revisions Locked (Auditor)
+            </Button>
+          ) : null}
+
+          {/* Digital Sign-off Dialog */}
+          {status === "draft" && (
+            canApprove ? (
+              <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
+                <DialogTrigger render={<Button variant="default" size="sm" />}>
+                  <CheckCircle2 className="size-3.5" /> Approve &amp; Seal
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Authorized Digital Sign-off</DialogTitle>
+                    <DialogDescription>
+                      Under SKIT005 sovereign protocols, publishing requires personal officer attestation against primary sources.
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="space-y-4 py-3">
+                    <div className="p-4 rounded-xl border border-gold/40 bg-gold/10 space-y-2">
+                      <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
+                        Legal Compliance Verification
+                      </h4>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Presumption of innocence is strictly upheld. No non-adjudicated suspect may be termed a &quot;scamster&quot; or &quot;kingpin&quot;. Casualty numbers must match verified station records.
+                      </p>
+                    </div>
+
+                    <div className="flex items-start gap-3 p-3.5 rounded-xl border border-border/70 bg-card">
+                      <Checkbox
+                        id="confirm-verification"
+                        checked={confirmedCheckbox}
+                        onCheckedChange={(checked) => setConfirmedCheckbox(checked === true)}
+                      />
+                      <label htmlFor="confirm-verification" className="text-xs leading-relaxed cursor-pointer select-none">
+                        <strong>Mandatory Attestation:</strong> I hereby certify that I have cross-checked all casualty, crime, and suspect claims in this press release against primary case evidence.
+                      </label>
+                    </div>
+                  </div>
+
+                  <DialogFooter>
+                    <Button
+                      variant="default"
+                      disabled={!confirmedCheckbox || approving}
+                      onClick={handleApprove}
+                      className="w-full sm:w-auto"
+                    >
+                      {approving ? "Sealing..." : "Digitally Seal & Approve Release"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            ) : (
+              <Button variant="outline" size="sm" disabled className="opacity-60 cursor-not-allowed text-xs">
+                <Lock className="size-3.5 mr-1" /> Requires Approver Role
+              </Button>
+            )
           )}
         </div>
       </div>
@@ -433,14 +470,20 @@ export function ReviewEditor({ initialDoc, currentUserId }: ReviewEditorProps): 
               <div className="flex items-center justify-between">
                 <CardTitle>Case Evidence &amp; Sources</CardTitle>
                 <div className="flex items-center gap-1">
-                  <Button
-                    variant="outline"
-                    size="xs"
-                    onClick={() => setLeftTab(leftTab === "upload" ? "sources" : "upload")}
-                    className="gap-1 text-[11px]"
-                  >
-                    <Upload className="size-3" /> {leftTab === "upload" ? "View Sources" : "Upload File"}
-                  </Button>
+                  {canEdit ? (
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      onClick={() => setLeftTab(leftTab === "upload" ? "sources" : "upload")}
+                      className="gap-1 text-[11px]"
+                    >
+                      <Upload className="size-3" /> {leftTab === "upload" ? "View Sources" : "Upload File"}
+                    </Button>
+                  ) : (
+                    <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground">
+                      Upload Locked
+                    </Badge>
+                  )}
                 </div>
               </div>
               <CardDescription>
@@ -493,14 +536,18 @@ export function ReviewEditor({ initialDoc, currentUserId }: ReviewEditorProps): 
                   {doc.sources.length === 0 ? (
                     <div className="p-6 rounded-xl border border-dashed border-border/80 text-center space-y-2">
                       <p className="text-xs text-muted-foreground font-medium">No source attachments uploaded yet.</p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setLeftTab("upload")}
-                        className="gap-1.5 text-xs"
-                      >
-                        <Upload className="size-3.5" /> Upload FIR or Audio
-                      </Button>
+                      {canEdit ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setLeftTab("upload")}
+                          className="gap-1.5 text-xs"
+                        >
+                          <Upload className="size-3.5" /> Upload FIR or Audio
+                        </Button>
+                      ) : (
+                        <p className="text-[11px] text-muted-foreground font-mono">Read-only auditor view.</p>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -703,8 +750,9 @@ export function ReviewEditor({ initialDoc, currentUserId }: ReviewEditorProps): 
                     </div>
                     <Input
                       value={headline1}
+                      readOnly={!canEdit}
                       onChange={(e) => setHeadline1(e.target.value)}
-                      className="font-medium"
+                      className={cn("font-medium", !canEdit && "bg-muted/30 cursor-default focus-visible:ring-0 select-text")}
                     />
                   </div>
 
@@ -718,8 +766,9 @@ export function ReviewEditor({ initialDoc, currentUserId }: ReviewEditorProps): 
                     </div>
                     <Input
                       value={headline2}
+                      readOnly={!canEdit}
                       onChange={(e) => setHeadline2(e.target.value)}
-                      className="font-medium"
+                      className={cn("font-medium", !canEdit && "bg-muted/30 cursor-default focus-visible:ring-0 select-text")}
                     />
                   </div>
 
@@ -733,8 +782,9 @@ export function ReviewEditor({ initialDoc, currentUserId }: ReviewEditorProps): 
                     </div>
                     <Input
                       value={headline3}
+                      readOnly={!canEdit}
                       onChange={(e) => setHeadline3(e.target.value)}
-                      className="font-medium"
+                      className={cn("font-medium", !canEdit && "bg-muted/30 cursor-default focus-visible:ring-0 select-text")}
                     />
                   </div>
                 </CardContent>
@@ -751,9 +801,10 @@ export function ReviewEditor({ initialDoc, currentUserId }: ReviewEditorProps): 
                 <CardContent className="space-y-4">
                   <Textarea
                     value={summary}
+                    readOnly={!canEdit}
                     onChange={(e) => setSummary(e.target.value)}
                     rows={3}
-                    className="leading-relaxed"
+                    className={cn("leading-relaxed", !canEdit && "bg-muted/30 cursor-default focus-visible:ring-0 select-text")}
                   />
 
                   <div className="space-y-1.5 pt-2">
@@ -767,9 +818,10 @@ export function ReviewEditor({ initialDoc, currentUserId }: ReviewEditorProps): 
                     </div>
                     <Textarea
                       value={detail}
+                      readOnly={!canEdit}
                       onChange={(e) => setDetail(e.target.value)}
                       rows={5}
-                      className="leading-relaxed font-sans"
+                      className={cn("leading-relaxed font-sans", !canEdit && "bg-muted/30 cursor-default focus-visible:ring-0 select-text")}
                     />
                   </div>
                 </CardContent>
@@ -800,7 +852,9 @@ export function ReviewEditor({ initialDoc, currentUserId }: ReviewEditorProps): 
                     </label>
                     <Input
                       value={secondaryHeadline}
+                      readOnly={!canEdit}
                       onChange={(e) => setSecondaryHeadline(e.target.value)}
+                      className={cn(!canEdit && "bg-muted/30 cursor-default focus-visible:ring-0 select-text")}
                     />
                   </div>
 
@@ -810,9 +864,10 @@ export function ReviewEditor({ initialDoc, currentUserId }: ReviewEditorProps): 
                     </label>
                     <Textarea
                       value={secondarySummary}
+                      readOnly={!canEdit}
                       onChange={(e) => setSecondarySummary(e.target.value)}
                       rows={4}
-                      className="leading-relaxed"
+                      className={cn("leading-relaxed", !canEdit && "bg-muted/30 cursor-default focus-visible:ring-0 select-text")}
                     />
                   </div>
                 </CardContent>

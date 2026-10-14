@@ -14,8 +14,8 @@ export default async function PublicVerifyPage({ params }: VerifyPageProps): Pro
   const { seal } = await params;
   const store = getStore();
 
-  // Look up document by ID or seal reference
-  const doc = await store.get({ id: seal, tenantId: "default-dept" });
+  // Look up document by ID or seal reference across registered departments
+  const doc = await store.get({ id: seal });
 
   if (!doc) {
     return (

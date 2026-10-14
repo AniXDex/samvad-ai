@@ -58,6 +58,10 @@ export function createDrizzleDocumentsStore(db: NodePgDatabase<typeof schema>): 
     },
 
     async get(input): Promise<DocumentDetailRecord | null> {
+      const condition = input.tenantId
+        ? and(eq(schema.documents.id, input.id), eq(schema.documents.tenantId, input.tenantId))
+        : eq(schema.documents.id, input.id);
+
       const docRows = await db
         .select({
           id: schema.documents.id,
@@ -67,7 +71,7 @@ export function createDrizzleDocumentsStore(db: NodePgDatabase<typeof schema>): 
           createdAt: schema.documents.createdAt,
         })
         .from(schema.documents)
-        .where(and(eq(schema.documents.id, input.id), eq(schema.documents.tenantId, input.tenantId)))
+        .where(condition)
         .limit(1);
 
       const doc = docRows[0];

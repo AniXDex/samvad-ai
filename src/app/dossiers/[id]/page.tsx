@@ -5,6 +5,7 @@ import { ShieldAlert } from "lucide-react";
 import { getStore } from "@/server/context";
 import { Button } from "@/components/ui/button";
 import { ReviewEditor, type DocumentDetail } from "@/components/dossier/review-editor";
+import type { MembershipRole } from "@/server/documents/store";
 
 interface DossierPageProps {
   readonly params: Promise<{ id: string }>;
@@ -12,7 +13,7 @@ interface DossierPageProps {
 
 export default async function DossierDetailPage({ params }: DossierPageProps): Promise<React.JSX.Element> {
   const { id } = await params;
-  const { isAuthenticated, userId } = await auth();
+  const { isAuthenticated, userId, orgId, orgRole } = await auth();
 
   if (!isAuthenticated || !userId) {
     return (
@@ -37,9 +38,30 @@ export default async function DossierDetailPage({ params }: DossierPageProps): P
     );
   }
 
-  const tenantId = "default-dept";
+  const tenantId = orgId || "default-dept";
   const store = getStore();
-  const doc = await store.get({ id, tenantId });
+
+  let userRole: MembershipRole = "approver";
+  if (orgRole === "org:admin") {
+    userRole = "approver";
+  } else if (orgRole === "org:member") {
+    userRole = "contributor";
+  } else if (orgRole === "org:auditor") {
+    userRole = "auditor";
+  } else {
+    const existingMembership = await store.getMembership({ userId, tenantId });
+    if (existingMembership) {
+      userRole = existingMembership.role;
+    } else {
+      userRole = "approver";
+    }
+  }
+
+  // Look up document scoped to tenant, with fallback to cross-tenant ID
+  let doc = await store.get({ id, tenantId });
+  if (!doc) {
+    doc = await store.get({ id });
+  }
 
   if (!doc) {
     notFound();
@@ -76,5 +98,5 @@ export default async function DossierDetailPage({ params }: DossierPageProps): P
     })),
   };
 
-  return <ReviewEditor initialDoc={detail} currentUserId={userId} />;
+  return <ReviewEditor initialDoc={detail} currentUserId={userId} userRole={userRole} />;
 }

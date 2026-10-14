@@ -14,9 +14,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { WorkspaceSelector } from "@/components/dossier/workspace-selector";
+import type { MembershipRole } from "@/server/documents/store";
 
 export default async function DossiersPage(): Promise<React.JSX.Element> {
-  const { isAuthenticated, userId } = await auth();
+  const { isAuthenticated, userId, orgId, orgRole } = await auth();
   const user = isAuthenticated ? await currentUser() : null;
 
   if (!isAuthenticated || !userId) {
@@ -42,8 +43,31 @@ export default async function DossiersPage(): Promise<React.JSX.Element> {
     );
   }
 
-  const tenantId = "default-dept";
+  const tenantId = orgId || "default-dept";
   const store = getStore();
+
+  // Map Clerk Organization role to 3-tier sovereign RBAC:
+  // - org:admin -> "approver"
+  // - org:member -> "contributor"
+  // - org:auditor -> "auditor"
+  // Personal accounts default to approver in their workspace ledger
+  let userRole: MembershipRole = "approver";
+  if (orgRole === "org:admin") {
+    userRole = "approver";
+  } else if (orgRole === "org:member") {
+    userRole = "contributor";
+  } else if (orgRole === "org:auditor") {
+    userRole = "auditor";
+  } else {
+    const existingMembership = await store.getMembership({ userId, tenantId });
+    if (existingMembership) {
+      userRole = existingMembership.role;
+    } else {
+      await store.addMembership({ userId, tenantId, role: "approver" });
+      userRole = "approver";
+    }
+  }
+
   const documents = await store.list(tenantId, 50);
 
   const officerName = user?.fullName || user?.firstName || "Duty Officer";
@@ -66,14 +90,26 @@ export default async function DossiersPage(): Promise<React.JSX.Element> {
             Tenant: <span className="text-foreground">{tenantId}</span>
           </span>
           <span className="text-border">•</span>
-          <Badge variant="sage" className="text-[10px] py-0 px-2 font-mono">
-            High-Assurance Gateway
-          </Badge>
+          {userRole === "approver" && (
+            <Badge variant="sage" className="text-[10px] py-0 px-2 font-mono">
+              Approver (Sign-off Authority)
+            </Badge>
+          )}
+          {userRole === "contributor" && (
+            <Badge variant="gold" className="text-[10px] py-0 px-2 font-mono">
+              Contributor (Drafting &amp; Evidence)
+            </Badge>
+          )}
+          {userRole === "auditor" && (
+            <Badge variant="outline" className="text-[10px] py-0 px-2 font-mono text-muted-foreground">
+              Auditor (Read-Only Observer)
+            </Badge>
+          )}
         </div>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl sm:text-4xl font-story font-semibold tracking-tight text-foreground">
-              Incident Synthesis & Disclosure Desk
+              Incident Synthesis &amp; Disclosure Desk
             </h1>
             <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
               Logged in as <strong className="text-foreground font-medium">{officerName}</strong>. Synthesize raw evidence into citation-grounded press releases, situation reports, and public statements across civic, emergency, and legal sectors.
@@ -83,7 +119,7 @@ export default async function DossiersPage(): Promise<React.JSX.Element> {
       </div>
 
       {/* Multi-Domain Workspace Selector & Scaffolding */}
-      <WorkspaceSelector tenantId={tenantId} />
+      <WorkspaceSelector tenantId={tenantId} userRole={userRole} />
 
       {/* Stats row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">

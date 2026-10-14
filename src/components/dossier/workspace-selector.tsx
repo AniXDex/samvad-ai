@@ -8,9 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { createDocumentAction } from "@/app/actions";
 import { cn } from "@/lib/utils";
+import type { MembershipRole } from "@/server/documents/store";
 
 interface WorkspaceSelectorProps {
   tenantId: string;
+  userRole?: MembershipRole;
   initialDomain?: DomainProfileId;
   onDomainChange?: (domain: DomainProfileId) => void;
   className?: string;
@@ -25,6 +27,7 @@ const DOMAIN_ICONS: Record<DomainProfileId, React.ComponentType<{ className?: st
 
 export function WorkspaceSelector({
   tenantId,
+  userRole = "approver",
   initialDomain = "public-safety",
   onDomainChange,
   className,
@@ -83,24 +86,31 @@ export function WorkspaceSelector({
           </p>
         </div>
 
-        {/* Dynamic Creation Form */}
-        <form
-          action={createDocumentAction}
-          className="flex items-center gap-2 w-full md:w-auto"
-        >
-          <input type="hidden" name="tenantId" value={tenantId} />
-          <input type="hidden" name="domainProfileId" value={selectedDomain} />
-          <Input
-            name="title"
-            placeholder={activeProfile.defaultTitlePlaceholder}
-            className="w-full md:w-80 text-xs bg-page"
-            required
-          />
-          <Button type="submit" size="sm" className="gap-1.5 shrink-0">
-            <Plus className="w-4 h-4" />
-            <span>New {activeProfile.entityName.split(" ")[0]}</span>
-          </Button>
-        </form>
+        {/* Creation Form or Auditor Notice */}
+        {userRole === "auditor" ? (
+          <div className="flex items-center gap-2 p-2.5 px-4 rounded-xl border border-dashed border-border/80 bg-muted/40 text-xs text-muted-foreground font-mono">
+            <Scale className="w-3.5 h-3.5 text-muted-foreground" />
+            <span>Auditor Read-Only: Dossier drafting restricted</span>
+          </div>
+        ) : (
+          <form
+            action={createDocumentAction}
+            className="flex items-center gap-2 w-full md:w-auto"
+          >
+            <input type="hidden" name="tenantId" value={tenantId} />
+            <input type="hidden" name="domainProfileId" value={selectedDomain} />
+            <Input
+              name="title"
+              placeholder={activeProfile.defaultTitlePlaceholder}
+              className="w-full md:w-80 text-xs bg-page"
+              required
+            />
+            <Button type="submit" size="sm" className="gap-1.5 shrink-0">
+              <Plus className="w-4 h-4" />
+              <span>New {activeProfile.entityName.split(" ")[0]}</span>
+            </Button>
+          </form>
+        )}
       </div>
     </div>
   );
