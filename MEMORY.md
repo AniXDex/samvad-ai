@@ -9,9 +9,10 @@ project skills `trigger-getting-started`, `inngest-setup` from
 pre-trained numbers. Web research via Firecrawl first, fallback disclosed.
 
 Code rules: strict TS + `noUncheckedIndexedAccess`; no `any` keyword, no
-`ts-ignore`/`ts-expect-error` anywhere (grep-gated); dependencies injected at
-seams; tests live at module interfaces; one adapter = hypothetical seam, two
-(real + fake) = real one.
+`ts-ignore`/`ts-expect-error` anywhere (grep-gated); no non-English literals
+in `src` (locale packs inject at runtime through the `BundlePhrases` seam);
+dependencies injected at seams; tests live at module interfaces; one adapter
+= hypothetical seam, two (real + fake) = real one.
 
 Decisions: R2 for blobs (S3 presigned PUT, region auto, server-built keys);
 Drizzle + `pg` (pooled app, direct migrate); DB rule: `db:push` in dev

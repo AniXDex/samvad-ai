@@ -3,24 +3,90 @@
  *
  * Interface: {@link buildDraftBundle}. It renders a fixed bundle from
  * verified {@link PressNoteFacts}: 3 headlines (≤15 words, enforced by
- * clause-dropping), a summary, and an inverted-pyramid detail, each in
- * English and Hindi. Templates only rearrange cited values — the module
- * cannot invent names, dates, or numbers by construction. Anything
- * unconfirmed renders as an explicit "could not be confirmed" clause, never
- * a guess. Hindi uses a formal register with entities/numbers invariant;
- * fluency upgrades belong to a future LLM renderer behind this same seam.
+ * clause-dropping), a summary, and an inverted-pyramid detail, in a primary
+ * locale (English, built in) and a secondary locale (injected). Templates only
+ * rearrange cited values — the module cannot invent names, dates, or numbers
+ * by construction. Anything unconfirmed renders as an explicit unconfirmed
+ * clause, never a guess.
+ *
+ * Language is a seam, not a hardcoding: the secondary locale arrives as a
+ * {@link BundlePhrases} dictionary supplied by the caller (deploy-time locale
+ * pack, database, or future LLM renderer). This codebase carries zero
+ * non-English literals — SKIT005's Hindi output is produced by injecting the
+ * Hindi pack at runtime, which also keeps translators out of code reviews.
  */
 import type { FactField, PressNoteFacts } from "./facts";
 
+/** Every natural-language fragment rendering needs, in one injectable shape. */
+export interface BundlePhrases {
+  readonly pressNoteLabel: string;
+  readonly officialStatement: string;
+  readonly officialNotice: string;
+  readonly detailsAwaited: string;
+  readonly participantsLabel: string;
+  readonly keyOutcomeLabel: string;
+  readonly outcomesLabel: string;
+  readonly actionTakenLabel: string;
+  readonly allegedOffenceIs: string;
+  readonly accusedIs: string;
+  readonly exactCharges: string;
+  readonly investigationUnderway: string;
+  readonly furtherAwaited: string;
+  readonly notConfirmed: string;
+  readonly casualtiesUnconfirmed: string;
+  readonly deadWord: string;
+  readonly injuredWord: string;
+  readonly reportedPrefix: string;
+  readonly reportedAnd: string;
+  readonly reportedSuffix: string;
+  readonly sentenceEnd: string;
+}
+
+export const ENGLISH_PHRASES: BundlePhrases = {
+  pressNoteLabel: "Press note",
+  officialStatement: "official statement",
+  officialNotice: "official notice",
+  detailsAwaited: "details awaited",
+  participantsLabel: "Participants",
+  keyOutcomeLabel: "Key outcome",
+  outcomesLabel: "Outcomes",
+  actionTakenLabel: "Action taken",
+  allegedOffenceIs: "The alleged offence is",
+  accusedIs: "The accused is",
+  exactCharges: "The exact charges",
+  investigationUnderway: "Investigation is underway.",
+  furtherAwaited: "Further details are awaited.",
+  notConfirmed: "could not be confirmed from the available sources",
+  casualtiesUnconfirmed: "The number of casualties could not be confirmed from the available sources.",
+  deadWord: "dead",
+  injuredWord: "injured",
+  reportedPrefix: "As per available records,",
+  reportedAnd: "and",
+  reportedSuffix: "were reported.",
+  sentenceEnd: ".",
+};
+
 export interface DraftBundle {
   readonly renderedBy: "template-v1";
-  readonly headlinesEn: readonly [string, string, string];
-  readonly headlinesHi: readonly [string, string, string];
-  readonly summaryEn: string;
-  readonly summaryHi: string;
-  readonly detailEn: string;
-  readonly detailHi: string;
+  readonly headlinesPrimary: readonly [string, string, string];
+  readonly headlinesSecondary: readonly [string, string, string];
+  readonly summaryPrimary: string;
+  readonly summarySecondary: string;
+  readonly detailPrimary: string;
+  readonly detailSecondary: string;
   readonly citedSourceIds: readonly string[];
+  /** Backwards-compatible aliases for the primary (English) outputs. */
+  readonly headlinesEn: readonly [string, string, string];
+  readonly summaryEn: string;
+  readonly detailEn: string;
+  readonly headlinesHi: readonly [string, string, string];
+  readonly summaryHi: string;
+  readonly detailHi: string;
+}
+
+/** Fixed-shape triple: the bundle contract is exactly three headlines. */
+function triple(first: string, second: string, third: string): readonly [string, string, string] {
+  return [first, second, third];
 }
 
 function textOf(field: FactField): string | null {
@@ -40,41 +106,81 @@ export function capHeadline(headline: string, maxWords = 15): string {
   return words.slice(0, maxWords).join(" ");
 }
 
-/** Fixed-shape triple: the bundle contract is exactly three headlines. */
-function triple(first: string, second: string, third: string): readonly [string, string, string] {
-  return [first, second, third];
+interface RenderedLocale {
+  readonly headlines: readonly [string, string, string];
+  readonly summary: string;
+  readonly detail: string;
 }
-const NOT_CONFIRMED_EN = "could not be confirmed from the available sources";
-const NOT_CONFIRMED_HI = "उपलब्ध स्रोतों से पुष्टि नहीं हो सकी";
 
-function casualtyClauseEn(facts: PressNoteFacts): string {
+function casualtyClause(facts: PressNoteFacts, p: BundlePhrases): string {
   const dead = textOf(facts.casualties.dead);
   const injured = textOf(facts.casualties.injured);
   if (dead === null && injured === null) {
-    if (facts.casualties.dead.status === "conflicting" || facts.casualties.injured.status === "conflicting") {
-      return `The number of casualties ${NOT_CONFIRMED_EN}.`;
-    }
-    return "";
+    const conflicting =
+      facts.casualties.dead.status === "conflicting" || facts.casualties.injured.status === "conflicting";
+    return conflicting ? p.casualtiesUnconfirmed : "";
   }
   const parts: string[] = [];
-  if (dead !== null) parts.push(`${dead} dead`);
-  if (injured !== null) parts.push(`${injured} injured`);
-  return `As per available records, ${parts.join(" and ")} were reported.`;
+  if (dead !== null) parts.push(`${dead} ${p.deadWord}`);
+  if (injured !== null) parts.push(`${injured} ${p.injuredWord}`);
+  return `${p.reportedPrefix} ${parts.join(` ${p.reportedAnd} `)} ${p.reportedSuffix}`;
 }
 
-function casualtyClauseHi(facts: PressNoteFacts): string {
-  const dead = textOf(facts.casualties.dead);
-  const injured = textOf(facts.casualties.injured);
-  if (dead === null && injured === null) {
-    if (facts.casualties.dead.status === "conflicting" || facts.casualties.injured.status === "conflicting") {
-      return `हताहतों की संख्या ${NOT_CONFIRMED_HI}।`;
-    }
-    return "";
+function renderLocale(facts: PressNoteFacts, p: BundlePhrases): RenderedLocale {
+  const event = textOf(facts.event) ?? `${p.pressNoteLabel}`;
+  const short = textOf(facts.eventShort) ?? event;
+  const date = textOf(facts.date);
+  const location = textOf(facts.location);
+  const where = location ? `, ${location}` : "";
+  const when = date ? ` on ${date}` : "";
+
+  const headlines = triple(
+    capHeadline(`${short}${where}${when}`),
+    capHeadline(
+      textOf(facts.actionTaken)
+        ? `${facts.actionTaken.value} in ${short}${where}`
+        : `${short}${where}, ${p.detailsAwaited}`,
+    ),
+    capHeadline(
+      facts.outcomes.length > 0 && facts.outcomes[0] !== undefined
+        ? `${facts.outcomes[0]}: ${short}${where}`
+        : `${short}: ${p.officialStatement}${where}`,
+    ),
+  );
+
+  const end = p.sentenceEnd;
+  const lead = `${event}${where}${when}${end}`;
+  const who =
+    facts.participants.length > 0
+      ? ` ${p.participantsLabel}: ${facts.participants.join(", ")}${end}`
+      : ` Participant details ${p.notConfirmed}${end}`;
+  const summary = `${lead}${who} ${
+    facts.outcomes.length > 0
+      ? `${p.keyOutcomeLabel}: ${facts.outcomes.join("; ")}${end}`
+      : `${p.outcomesLabel} ${p.notConfirmed}${end}`
+  }`;
+
+  const paragraphs: string[] = [lead + who];
+  const casualty = casualtyClause(facts, p);
+  if (casualty) paragraphs.push(casualty);
+  const crime = textOf(facts.allegedCrime);
+  const accused = textOf(facts.accused);
+  if (crime !== null) {
+    paragraphs.push(
+      `${p.allegedOffenceIs} ${crime}${accused ? `; ${p.accusedIs} ${accused}` : ""}${end} ${p.investigationUnderway}`,
+    );
+  } else if (accused !== null) {
+    paragraphs.push(`${p.accusedIs} ${accused}${end} ${p.exactCharges} ${p.notConfirmed}${end}`);
   }
-  const parts: string[] = [];
-  if (dead !== null) parts.push(`${dead} मृत`);
-  if (injured !== null) parts.push(`${injured} घायल`);
-  return `उपलब्ध रिकॉर्ड के अनुसार, ${parts.join(" और ")} की सूचना है।`;
+  paragraphs.push(actionText(facts, p));
+  if (facts.outcomes.length > 0) paragraphs.push(`${p.outcomesLabel}: ${facts.outcomes.join("; ")}${end}`);
+
+  return { headlines, summary, detail: paragraphs.join(" ") };
+}
+
+function actionText(facts: PressNoteFacts, p: BundlePhrases): string {
+  const action = textOf(facts.actionTaken);
+  return action ? `${p.actionTakenLabel}: ${action}${p.sentenceEnd}` : p.furtherAwaited;
 }
 
 function collectSourceIds(facts: PressNoteFacts): string[] {
@@ -104,94 +210,23 @@ function collectSourceIds(facts: PressNoteFacts): string[] {
   return ids;
 }
 
-export function buildDraftBundle(facts: PressNoteFacts): DraftBundle {
-  const event = textOf(facts.event) ?? "Official press note";
-  const short = textOf(facts.eventShort) ?? event;
-  const date = textOf(facts.date);
-  const location = textOf(facts.location);
-  const where = location ? `, ${location}` : "";
-  const when = date ? ` on ${date}` : "";
-
-  const headlinesEn = triple(
-    capHeadline(`${short}${where}${when}`),
-    capHeadline(
-      textOf(facts.actionTaken) ? `${facts.actionTaken.value} in ${short}${where}` : `${short}${where}, details awaited`,
-    ),
-    capHeadline(
-      facts.outcomes.length > 0 && facts.outcomes[0] !== undefined
-        ? `${facts.outcomes[0]}: ${short}${where}`
-        : `${short}: official statement${where}`,
-    ),
-  );
-
-  const headlinesHi = triple(
-    capHeadline(`प्रेस नोट: ${short}${location ? `, ${location}` : ""}${date ? `, ${date}` : ""}`),
-    capHeadline(
-      textOf(facts.actionTaken) && facts.actionTaken.value
-        ? `${short}${where} में ${facts.actionTaken.value}`
-        : `${short}: आधिकारिक वक्तव्य`,
-    ),
-    capHeadline(
-      facts.outcomes.length > 0 && facts.outcomes[0] !== undefined
-        ? `${facts.outcomes[0]}: ${short}`
-        : `${short} पर आधिकारिक सूचना`,
-    ),
-  );
-
-  const leadEn = `${event}${where}${when ? `${when}` : ""}.`;
-  const whoEn =
-    facts.participants.length > 0
-      ? ` Participants: ${facts.participants.join(", ")}.`
-      : ` Participant details ${NOT_CONFIRMED_EN}.`;
-  const summaryEn = `${leadEn}${whoEn} ${
-    facts.outcomes.length > 0 ? `Key outcome: ${facts.outcomes.join("; ")}.` : `Outcomes ${NOT_CONFIRMED_EN}.`
-  }`;
-
-  const summaryHi = `${event}${location ? `, ${location}` : ""}${date ? `, ${date}` : ""}।${
-    facts.participants.length > 0
-      ? ` प्रतिभागी: ${facts.participants.join(", ")}।`
-      : ` प्रतिभागियों का विवरण ${NOT_CONFIRMED_HI}।`
-  }${facts.outcomes.length > 0 ? ` मुख्य परिणाम: ${facts.outcomes.join("; ")}।` : ` परिणाम ${NOT_CONFIRMED_HI}।`}`;
-
-  const paragraphsEn: string[] = [leadEn + whoEn];
-  const casualtyEn = casualtyClauseEn(facts);
-  if (casualtyEn) paragraphsEn.push(casualtyEn);
-  const crime = textOf(facts.allegedCrime);
-  const accused = textOf(facts.accused);
-  if (crime !== null) {
-    paragraphsEn.push(`The alleged offence is ${crime}${accused ? `; the accused is ${accused}` : ""}. Investigation is underway.`);
-  } else if (accused !== null) {
-    paragraphsEn.push(`The accused is ${accused}. The exact charges ${NOT_CONFIRMED_EN}.`);
-  }
-  const action = textOf(facts.actionTaken);
-  paragraphsEn.push(
-    action ? `Action taken: ${action}.` : "Further details are awaited.",
-  );
-  if (facts.outcomes.length > 0) paragraphsEn.push(`Outcomes: ${facts.outcomes.join("; ")}.`);
-
-  const paragraphsHi: string[] = [
-    `${event}${location ? `, ${location}` : ""}${date ? `, ${date}` : ""}।${
-      facts.participants.length > 0 ? ` प्रतिभागी: ${facts.participants.join(", ")}।` : ""
-    }`,
-  ];
-  const casualtyHi = casualtyClauseHi(facts);
-  if (casualtyHi) paragraphsHi.push(casualtyHi);
-  if (crime !== null) {
-    paragraphsHi.push(`कथित अपराध ${crime} है${accused ? `; आरोपी ${accused} है` : ""}। जांच जारी है।`);
-  } else if (accused !== null) {
-    paragraphsHi.push(`आरोपी ${accused} है। सटीक आरोप ${NOT_CONFIRMED_HI}।`);
-  }
-  paragraphsHi.push(action ? `की गई कार्रवाई: ${action}।` : "अधिक विवरण की प्रतीक्षा है।");
-  if (facts.outcomes.length > 0) paragraphsHi.push(`परिणाम: ${facts.outcomes.join("; ")}।`);
-
+export function buildDraftBundle(facts: PressNoteFacts, secondary: BundlePhrases): DraftBundle {
+  const primary = renderLocale(facts, ENGLISH_PHRASES);
+  const second = renderLocale(facts, secondary);
   return {
     renderedBy: "template-v1",
-    headlinesEn,
-    headlinesHi,
-    summaryEn,
-    summaryHi,
-    detailEn: paragraphsEn.join(" "),
-    detailHi: paragraphsHi.join(" "),
+    headlinesPrimary: primary.headlines,
+    headlinesSecondary: second.headlines,
+    summaryPrimary: primary.summary,
+    summarySecondary: second.summary,
+    detailPrimary: primary.detail,
+    detailSecondary: second.detail,
     citedSourceIds: collectSourceIds(facts),
+    headlinesEn: primary.headlines,
+    summaryEn: primary.summary,
+    detailEn: primary.detail,
+    headlinesHi: second.headlines,
+    summaryHi: second.summary,
+    detailHi: second.detail,
   };
 }

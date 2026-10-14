@@ -10,7 +10,10 @@ the real gates). `buildDraftBundle` renders the fixed EN+HI bundle
 values only — unconfirmed renders as "could not be confirmed", and template
 output self-passes the neutrality check in tests.
 
-13 tests, all through the module interfaces. Still open (needs keys):
+13 tests, all through the module interfaces. Language is a seam
+(`BundlePhrases` port): English built in, secondary locale (Hindi pack)
+injected at runtime — zero non-English literals in the codebase. Still open
+(needs keys):
 LLM claim extractor producing `{field, value, spanIndex}` claims, real Jev
 `FactVerifier` port adapter, LLM fluency renderer behind the bundle seam.
 The Trigger job `press-note/extract` (OCR/STT → claims) wires in once
